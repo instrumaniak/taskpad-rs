@@ -1,8 +1,8 @@
-use crate::commands::{all_deps_done, status_color};
+use crate::commands::{
+    all_deps_done, count_all, load_status, pick_next_task, status_color, unmet_deps,
+};
 use crate::models::Result;
 use crate::models::Status;
-use crate::storage;
-use crate::utils;
 use std::collections::BTreeMap;
 
 /// Display the status of all tasks.
@@ -10,37 +10,10 @@ use std::collections::BTreeMap;
 /// Groups tasks by phase, marks the next actionable task, shows
 /// blocked-by information, and prints a progress summary.
 /// Matching C++ `Commands::status`.
-pub fn run(tasks_dir: &str) -> Result<()> {
-    let dir = utils::resolve_task_dir(tasks_dir);
-    let sf = storage::read_status_file(&dir)?;
+pub(crate) fn run(tasks_dir: &str) -> Result<()> {
+    let (_, sf) = load_status(tasks_dir)?;
 
-    let mut next_task_id = String::new();
-    for (id, task) in &sf.tasks {
-        if task.status != Status::Pending {
-            continue;
-        }
-        if !all_deps_done(task, &sf.tasks) {
-            continue;
-        }
-        if next_task_id.is_empty() {
-            next_task_id = id.clone();
-        } else {
-            let current = task;
-            let best = sf.tasks.get(&next_task_id).unwrap();
-            let current_better = if current.critical && !best.critical {
-                true
-            } else if current.critical == best.critical {
-                current.phase < best.phase
-                    || current.phase == best.phase
-                        && utils::parse_task_id(&current.id) < utils::parse_task_id(&best.id)
-            } else {
-                false
-            };
-            if current_better {
-                next_task_id = id.clone();
-            }
-        }
-    }
+    let next_task_id = pick_next_task(&sf.tasks).unwrap_or_default();
 
     let mut by_phase: BTreeMap<i32, Vec<String>> = BTreeMap::new();
     for (id, task) in &sf.tasks {
@@ -60,7 +33,11 @@ pub fn run(tasks_dir: &str) -> Result<()> {
         sorted_ids.sort();
 
         for id in &sorted_ids {
-            let task = sf.tasks.get(id).unwrap();
+            // Unreachable in practice: `by_phase` is built from
+            // `sf.tasks` keys just above. Skip gracefully if violated.
+            let Some(task) = sf.tasks.get(id) else {
+                continue;
+            };
             let marker = if task.status == Status::Done {
                 "\u{2713}"
             } else if *id == next_task_id {
@@ -71,6 +48,16 @@ pub fn run(tasks_dir: &str) -> Result<()> {
 
             print!("{} {}  {}", marker, id, task.name);
 
+            // The status column is padded to 20 **bytes**, matching C++
+            // `20 - static_cast<int>(t.name.size())` (commands.cpp:480): both
+            // are byte counts, not display widths. A name in a wide script
+            // (CJK, or an emoji) therefore counts as several columns while
+            // occupying more than one terminal cell, and the `[status]`
+            // column visibly misaligns for those rows only.
+            //
+            // Deliberate C++ parity: padding by display width would change the
+            // exact bytes of every `taskpad status` line for every project
+            // with a non-ASCII task name, so the byte-based width is kept.
             let padding = std::cmp::max(1, 20usize.saturating_sub(task.name.len()));
             print!("{}", " ".repeat(padding));
 
@@ -80,14 +67,10 @@ pub fn run(tasks_dir: &str) -> Result<()> {
                 if *id == next_task_id {
                     print!("  \u{2190} next (dependencies met)");
                 } else if !all_deps_done(task, &sf.tasks) {
-                    let mut blockers = Vec::new();
-                    for dep in &task.depends {
-                        if let Some(dep_task) = sf.tasks.get(dep)
-                            && dep_task.status != Status::Done
-                        {
-                            blockers.push(dep.clone());
-                        }
-                    }
+                    let blockers: Vec<String> = unmet_deps(task, &sf.tasks)
+                        .into_iter()
+                        .map(|(dep, _)| dep.clone())
+                        .collect();
                     print!("  \u{2190} blocked by {}", blockers.join(", "));
                 }
             }
@@ -97,13 +80,11 @@ pub fn run(tasks_dir: &str) -> Result<()> {
     }
 
     let total = sf.tasks.len() as i32;
-    let done = crate::commands::count_status(&sf.tasks, Status::Done);
-    let in_prog = crate::commands::count_status(&sf.tasks, Status::InProgress);
-    let pend = crate::commands::count_status(&sf.tasks, Status::Pending);
+    let counts = count_all(&sf.tasks);
 
     println!(
         "Progress: {}/{} done, {} in_progress, {} pending",
-        done, total, in_prog, pend
+        counts.done, total, counts.in_progress, counts.pending
     );
 
     Ok(())
@@ -114,6 +95,7 @@ mod tests {
     use super::*;
     use crate::models::StatusFile;
     use crate::models::Task;
+    use crate::storage;
     use tempfile::tempdir;
 
     #[test]

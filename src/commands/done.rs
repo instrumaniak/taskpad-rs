@@ -1,10 +1,8 @@
-use crate::commands::all_deps_done;
+use crate::commands::{all_deps_done, dependents_of, load_status, require_task_id, task_not_found};
 use crate::models::Result;
 use crate::models::Status;
 use crate::models::TaskpadError;
 use crate::storage;
-use crate::utils;
-use crate::validator;
 
 /// Mark a task as done.
 ///
@@ -12,21 +10,14 @@ use crate::validator;
 /// done, sets status to Done, then finds and displays tasks that
 /// became unblocked by this change.
 /// Matching C++ `Commands::done`.
-pub fn run(tasks_dir: &str, task_id: &str) -> Result<()> {
-    if !validator::is_valid_task_id(task_id) {
-        return Err(TaskpadError::Message(
-            "Invalid task ID format. Expected TXXX (see Task ID Format)".into(),
-        ));
-    }
+pub(crate) fn run(tasks_dir: &str, task_id: &str) -> Result<()> {
+    require_task_id(task_id)?;
 
-    let dir = utils::resolve_task_dir(tasks_dir);
-    let mut sf = storage::read_status_file(&dir)?;
+    let (dir, mut sf) = load_status(tasks_dir)?;
 
     let task = match sf.tasks.get(task_id) {
         Some(t) => t.clone(),
-        None => {
-            return Err(TaskpadError::Message(format!("Task {task_id} not found")));
-        }
+        None => return Err(task_not_found(task_id)),
     };
 
     if task.status == Status::Done {
@@ -44,19 +35,17 @@ pub fn run(tasks_dir: &str, task_id: &str) -> Result<()> {
 
     // Find newly unblocked tasks
     let mut unblocked: Vec<(String, String)> = Vec::new();
-    for (id, t) in &sf.tasks {
+    for id in dependents_of(&sf.tasks, task_id) {
+        let Some(t) = sf.tasks.get(id) else {
+            continue;
+        };
         if t.status != Status::Pending {
             continue;
         }
         if !all_deps_done(t, &sf.tasks) {
             continue;
         }
-        for dep in &t.depends {
-            if dep == task_id {
-                unblocked.push((id.clone(), t.name.clone()));
-                break;
-            }
-        }
+        unblocked.push((id.clone(), t.name.clone()));
     }
 
     if !unblocked.is_empty() {
@@ -74,7 +63,6 @@ mod tests {
     use super::*;
     use crate::models::StatusFile;
     use crate::models::Task;
-    use std::collections::BTreeMap;
     use tempfile::tempdir;
 
     fn make_task(id: &str, status: Status, depends: Vec<String>) -> Task {
@@ -204,16 +192,5 @@ mod tests {
         // T002 should now be done (all deps met) but its status is still Pending
         // in the file — it's just that all_deps_done would now return true
         assert_eq!(sf3.tasks["T002"].status, Status::Pending);
-    }
-
-    #[test]
-    fn all_deps_done_pure() {
-        let mut tasks = BTreeMap::new();
-        tasks.insert("T001".to_string(), make_task("T001", Status::Done, vec![]));
-        tasks.insert(
-            "T002".to_string(),
-            make_task("T002", Status::Pending, vec!["T001".to_string()]),
-        );
-        assert!(all_deps_done(&tasks["T002"], &tasks));
     }
 }

@@ -1,10 +1,9 @@
+use crate::commands::{load_status, require_task_id, task_not_found};
 use crate::models::Result;
 use crate::models::Status;
 use crate::models::TaskpadError;
 use crate::models::status_to_string;
 use crate::storage;
-use crate::utils;
-use crate::validator;
 
 /// Pause a task, reverting it to pending.
 ///
@@ -12,21 +11,14 @@ use crate::validator;
 /// pending, records the old status, sets status to Pending, and
 /// displays the transition.
 /// Matching C++ `Commands::pause`.
-pub fn run(tasks_dir: &str, task_id: &str) -> Result<()> {
-    if !validator::is_valid_task_id(task_id) {
-        return Err(TaskpadError::Message(
-            "Invalid task ID format. Expected TXXX (see Task ID Format)".into(),
-        ));
-    }
+pub(crate) fn run(tasks_dir: &str, task_id: &str) -> Result<()> {
+    require_task_id(task_id)?;
 
-    let dir = utils::resolve_task_dir(tasks_dir);
-    let mut sf = storage::read_status_file(&dir)?;
+    let (dir, mut sf) = load_status(tasks_dir)?;
 
     let task = match sf.tasks.get(task_id) {
         Some(t) => t.clone(),
-        None => {
-            return Err(TaskpadError::Message(format!("Task {task_id} not found")));
-        }
+        None => return Err(task_not_found(task_id)),
     };
 
     if task.status == Status::Pending {

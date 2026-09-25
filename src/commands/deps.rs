@@ -1,10 +1,7 @@
+use crate::commands::{dependents_of, load_status, require_task_id, task_not_found};
 use crate::models::Result;
 use crate::models::Status;
-use crate::models::TaskpadError;
 use crate::models::status_to_string;
-use crate::storage;
-use crate::utils;
-use crate::validator;
 
 /// Show a task's dependencies and the tasks waiting on it.
 ///
@@ -12,21 +9,14 @@ use crate::validator;
 /// (done → `✓`, otherwise `✗`; unknown dependency IDs are printed bare),
 /// then a reverse lookup under `Tasks waiting on TXXX:`.
 /// Matching C++ `Commands::deps`.
-pub fn run(tasks_dir: &str, task_id: &str) -> Result<()> {
-    if !validator::is_valid_task_id(task_id) {
-        return Err(TaskpadError::Message(
-            "Invalid task ID format. Expected TXXX (see Task ID Format)".into(),
-        ));
-    }
+pub(crate) fn run(tasks_dir: &str, task_id: &str) -> Result<()> {
+    require_task_id(task_id)?;
 
-    let dir = utils::resolve_task_dir(tasks_dir);
-    let sf = storage::read_status_file(&dir)?;
+    let (_, sf) = load_status(tasks_dir)?;
 
     let task = match sf.tasks.get(task_id) {
         Some(t) => t.clone(),
-        None => {
-            return Err(TaskpadError::Message(format!("Task {task_id} not found")));
-        }
+        None => return Err(task_not_found(task_id)),
     };
 
     println!("{task_id} depends on:");
@@ -53,12 +43,7 @@ pub fn run(tasks_dir: &str, task_id: &str) -> Result<()> {
         }
     }
 
-    let mut dependents: Vec<&String> = Vec::new();
-    for (id, entry) in &sf.tasks {
-        if entry.depends.iter().any(|d| d == task_id) {
-            dependents.push(id);
-        }
-    }
+    let dependents = dependents_of(&sf.tasks, task_id);
 
     println!();
     println!("Tasks waiting on {task_id}:");
@@ -84,6 +69,7 @@ mod tests {
     use super::*;
     use crate::models::StatusFile;
     use crate::models::Task;
+    use crate::storage;
     use tempfile::tempdir;
 
     fn make_task(id: &str, name: &str, status: Status, depends: Vec<String>) -> Task {
