@@ -2,11 +2,11 @@
 // very common Rust logging crate; if that crate is ever added as a dependency
 // this module may need renaming (e.g. `log_cmd`) — see task T011.
 
+use crate::commands::{load_status, require_task_id, task_not_found};
 use crate::models::Result;
 use crate::models::TaskpadError;
 use crate::storage;
 use crate::utils;
-use crate::validator;
 
 /// Append a timestamped entry to a task's T\*.md `## Notes` section.
 ///
@@ -14,30 +14,32 @@ use crate::validator;
 /// task exists in `status.yaml`, then delegates the timestamped append to
 /// [`storage::append_log`] (which errors with `Task file <path> not found`
 /// when the T\*.md is missing) and reports the file that was written.
+/// The timestamp comes from [`utils::current_timestamp()`] here at the
+/// command layer so `storage::append_log` stays pure and testable.
 /// Matching C++ `Commands::log`.
-pub fn run(tasks_dir: &str, task_id: &str, message: &str) -> Result<()> {
-    if !validator::is_valid_task_id(task_id) {
-        return Err(TaskpadError::Message(
-            "Invalid task ID format. Expected TXXX (see Task ID Format)".into(),
-        ));
-    }
+///
+/// The message is stored verbatim in the `## Notes` entry — only emptiness is
+/// rejected, never the contents. ANSI escape sequences, control characters
+/// and newlines all survive into the task file, and are re-emitted verbatim
+/// by any later `taskpad` command that echoes a T\*.md section. C++ parity
+/// (`Commands::log` writes `message` straight into the entry); escaping it
+/// would change the bytes of both the task file and the printed output.
+pub(crate) fn run(tasks_dir: &str, task_id: &str, message: &str) -> Result<()> {
+    require_task_id(task_id)?;
 
     if message.is_empty() {
         return Err(TaskpadError::Message("Log message cannot be empty".into()));
     }
 
-    let dir = utils::resolve_task_dir(tasks_dir);
-    let sf = storage::read_status_file(&dir)?;
+    let (dir, sf) = load_status(tasks_dir)?;
 
     let task = match sf.tasks.get(task_id) {
         Some(t) => t.clone(),
-        None => {
-            return Err(TaskpadError::Message(format!("Task {task_id} not found")));
-        }
+        None => return Err(task_not_found(task_id)),
     };
 
     let file_path = storage::task_file_path(&dir, task_id, &task.name);
-    storage::append_log(&file_path, message)?;
+    storage::append_log(&file_path, message, &utils::current_timestamp())?;
 
     println!("Logged to {}", file_path);
     Ok(())

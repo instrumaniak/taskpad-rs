@@ -1,3 +1,5 @@
+#![cfg_attr(test, allow(clippy::unwrap_used, clippy::expect_used))]
+
 mod cli;
 mod commands;
 mod models;
@@ -9,7 +11,7 @@ use clap::Parser;
 
 fn main() {
     let cli = cli::Cli::parse();
-    let tasks_dir = utils::resolve_task_dir(cli.tasks_dir.as_deref().unwrap_or_default());
+    let tasks_dir = storage::resolve_task_dir(cli.tasks_dir.as_deref().unwrap_or_default());
 
     let result = match cli.command {
         cli::Command::Init => commands::init::run(&tasks_dir),
@@ -36,21 +38,34 @@ fn main() {
             no_critical,
             phases,
             critical_path,
-        } => commands::edit::run(
-            &tasks_dir,
-            id.as_deref().unwrap_or_default(),
-            status.as_deref().unwrap_or_default(),
-            &depends,
-            phase.as_deref().unwrap_or_default(),
-            critical,
-            no_critical,
-            phases.as_deref().unwrap_or_default(),
-            critical_path.as_deref().unwrap_or_default(),
-        ),
-        cli::Command::Summary => commands::summary::run(&tasks_dir),
-        cli::Command::Remove { id, all, force } => {
-            commands::remove::run(&tasks_dir, &id, all, force)
+        } => {
+            let args = commands::edit::EditArgs {
+                status,
+                depends: Some(depends),
+                phase,
+                critical,
+                no_critical,
+                phases,
+                critical_path,
+            };
+            commands::edit::run(&tasks_dir, id.as_deref().unwrap_or_default(), args)
         }
+        cli::Command::Summary => commands::summary::run(&tasks_dir),
+        cli::Command::Remove { id, all, force } => commands::remove::run(
+            &tasks_dir,
+            &id,
+            all,
+            force,
+            // Stdin stays at this layer: an empty line, EOF, or read
+            // error declines (see `remove::confirmed`).
+            |_| {
+                let mut response = String::new();
+                if std::io::stdin().read_line(&mut response).is_err() {
+                    return false;
+                }
+                commands::remove::confirmed(&response)
+            },
+        ),
     };
 
     if let Err(e) = result {

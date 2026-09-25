@@ -1,3 +1,4 @@
+use crate::commands::{load_status, require_task_id, task_not_found};
 use crate::models::Result;
 use crate::models::StatusFile;
 use crate::models::TaskpadError;
@@ -6,6 +7,30 @@ use crate::storage;
 use crate::utils;
 use crate::validator;
 use std::collections::BTreeMap;
+
+/// Bundled task/project edit options for [`run`].
+///
+/// `None` and `Some("")` both mean "absent" (likewise `None` and
+/// `Some([])` for `depends`), preserving the previous `&str` convention
+/// where `""` meant absent. `critical` / `no_critical` stay two separate
+/// booleans mirroring the CLI11 `--critical` / `--no-critical` flags.
+#[derive(Debug, Default)]
+pub(crate) struct EditArgs {
+    /// Set task status (`pending`|`in_progress`|`done`).
+    pub(crate) status: Option<String>,
+    /// Replace task dependencies.
+    pub(crate) depends: Option<Vec<String>>,
+    /// Set phase number.
+    pub(crate) phase: Option<String>,
+    /// Mark as critical.
+    pub(crate) critical: bool,
+    /// Unmark critical.
+    pub(crate) no_critical: bool,
+    /// Replace phase mapping (`"N:name,N:name"`).
+    pub(crate) phases: Option<String>,
+    /// Replace critical path (comma-separated task IDs).
+    pub(crate) critical_path: Option<String>,
+}
 
 /// Edit task metadata or project settings.
 ///
@@ -28,33 +53,25 @@ use std::collections::BTreeMap;
 /// only when `--critical` was the one supplied.
 ///
 /// Matching C++ `Commands::edit`.
-#[allow(clippy::too_many_arguments)]
-pub fn run(
-    tasks_dir: &str,
-    task_id: &str,
-    status: &str,
-    depends: &[String],
-    phase: &str,
-    critical: bool,
-    no_critical: bool,
-    phases: &str,
-    critical_path: &str,
-) -> Result<()> {
-    let dir = utils::resolve_task_dir(tasks_dir);
-    let mut sf = storage::read_status_file(&dir)?;
+pub(crate) fn run(tasks_dir: &str, task_id: &str, args: EditArgs) -> Result<()> {
+    let status = args.status.as_deref().unwrap_or_default();
+    let depends: &[String] = args.depends.as_deref().unwrap_or_default();
+    let phase = args.phase.as_deref().unwrap_or_default();
+    let critical = args.critical;
+    let no_critical = args.no_critical;
+    let phases = args.phases.as_deref().unwrap_or_default();
+    let critical_path = args.critical_path.as_deref().unwrap_or_default();
+
+    let (dir, mut sf) = load_status(tasks_dir)?;
 
     if task_id.is_empty() {
         return edit_project(&dir, &mut sf, phases, critical_path);
     }
 
-    if !validator::is_valid_task_id(task_id) {
-        return Err(TaskpadError::Message(
-            "Invalid task ID format. Expected TXXX (see Task ID Format)".into(),
-        ));
-    }
+    require_task_id(task_id)?;
 
     if !sf.tasks.contains_key(task_id) {
-        return Err(TaskpadError::Message(format!("Task {task_id} not found")));
+        return Err(task_not_found(task_id));
     }
 
     // Validation runs to completion before any mutation, in the same order
@@ -92,7 +109,7 @@ pub fn run(
 
     let task = match sf.tasks.get_mut(task_id) {
         Some(t) => t,
-        None => return Err(TaskpadError::Message(format!("Task {task_id} not found"))),
+        None => return Err(task_not_found(task_id)),
     };
     if !status.is_empty() {
         task.status = string_to_status(status);
@@ -247,10 +264,38 @@ mod tests {
         tasks
     }
 
+    /// Build [`EditArgs`] from the old positional style: `""` means absent
+    /// (mirroring the pre-bundle `&str` convention) and `&[]` means absent
+    /// for `depends`. `run` normalizes `None` and `Some("")` identically,
+    /// so wrapping everything in `Some` still exercises absent-vs-present.
+    fn ea(
+        status: &str,
+        depends: &[String],
+        phase: &str,
+        critical: bool,
+        no_critical: bool,
+        phases: &str,
+        critical_path: &str,
+    ) -> EditArgs {
+        EditArgs {
+            status: Some(status.to_string()),
+            depends: Some(depends.to_vec()),
+            phase: Some(phase.to_string()),
+            critical,
+            no_critical,
+            phases: Some(phases.to_string()),
+            critical_path: Some(critical_path.to_string()),
+        }
+    }
+
     #[test]
     fn task_level_status_change() {
         let (_guard, root) = setup_with(single_task("T001"));
-        let result = run(&root, "T001", "in_progress", &[], "", false, false, "", "");
+        let result = run(
+            &root,
+            "T001",
+            ea("in_progress", &[], "", false, false, "", ""),
+        );
         assert!(result.is_ok());
         let sf = storage::read_status_file(&root).unwrap();
         assert_eq!(sf.tasks["T001"].status, Status::InProgress);
@@ -263,7 +308,11 @@ mod tests {
         let (_guard, root) = setup_with(tasks);
 
         let depends = vec!["T002".to_string()];
-        let result = run(&root, "T001", "done", &depends, "2", true, false, "", "");
+        let result = run(
+            &root,
+            "T001",
+            ea("done", &depends, "2", true, false, "", ""),
+        );
         assert!(result.is_ok());
 
         let sf = storage::read_status_file(&root).unwrap();
@@ -281,7 +330,7 @@ mod tests {
         tasks.insert("T001".to_string(), task);
         let (_guard, root) = setup_with(tasks);
 
-        let result = run(&root, "T001", "", &[], "", false, true, "", "");
+        let result = run(&root, "T001", ea("", &[], "", false, true, "", ""));
         assert!(result.is_ok());
         let sf = storage::read_status_file(&root).unwrap();
         assert!(!sf.tasks["T001"].critical);
@@ -291,7 +340,7 @@ mod tests {
     fn both_critical_flags_yield_true() {
         // cli.cpp: critSet = editCritical || editNoCritical; critVal = editCritical
         let (_guard, root) = setup_with(single_task("T001"));
-        let result = run(&root, "T001", "", &[], "", true, true, "", "");
+        let result = run(&root, "T001", ea("", &[], "", true, true, "", ""));
         assert!(result.is_ok());
         let sf = storage::read_status_file(&root).unwrap();
         assert!(sf.tasks["T001"].critical);
@@ -300,7 +349,7 @@ mod tests {
     #[test]
     fn invalid_status_error() {
         let (_guard, root) = setup_with(single_task("T001"));
-        let result = run(&root, "T001", "bogus", &[], "", false, false, "", "");
+        let result = run(&root, "T001", ea("bogus", &[], "", false, false, "", ""));
         assert_eq!(
             result.unwrap_err().to_string(),
             "Invalid status. Must be: pending, in_progress, or done"
@@ -310,7 +359,7 @@ mod tests {
     #[test]
     fn invalid_task_id_error() {
         let (_guard, root) = setup_with(single_task("T001"));
-        let result = run(&root, "BAD", "done", &[], "", false, false, "", "");
+        let result = run(&root, "BAD", ea("done", &[], "", false, false, "", ""));
         assert_eq!(
             result.unwrap_err().to_string(),
             "Invalid task ID format. Expected TXXX (see Task ID Format)"
@@ -320,14 +369,14 @@ mod tests {
     #[test]
     fn task_not_found_error() {
         let (_guard, root) = setup_with(single_task("T001"));
-        let result = run(&root, "T999", "done", &[], "", false, false, "", "");
+        let result = run(&root, "T999", ea("done", &[], "", false, false, "", ""));
         assert_eq!(result.unwrap_err().to_string(), "Task T999 not found");
     }
 
     #[test]
     fn no_changes_error() {
         let (_guard, root) = setup_with(single_task("T001"));
-        let result = run(&root, "T001", "", &[], "", false, false, "", "");
+        let result = run(&root, "T001", ea("", &[], "", false, false, "", ""));
         assert_eq!(
             result.unwrap_err().to_string(),
             "No changes specified. Use --status, --phase, --critical, or --depends"
@@ -337,7 +386,11 @@ mod tests {
     #[test]
     fn project_level_flags_ignored_in_task_branch() {
         let (_guard, root) = setup_with(single_task("T001"));
-        let result = run(&root, "T001", "", &[], "", false, false, "0:Name", "T001");
+        let result = run(
+            &root,
+            "T001",
+            ea("", &[], "", false, false, "0:Name", "T001"),
+        );
         assert_eq!(
             result.unwrap_err().to_string(),
             "No changes specified. Use --status, --phase, --critical, or --depends"
@@ -347,7 +400,7 @@ mod tests {
     #[test]
     fn negative_phase_error() {
         let (_guard, root) = setup_with(single_task("T001"));
-        let result = run(&root, "T001", "", &[], "-1", false, false, "", "");
+        let result = run(&root, "T001", ea("", &[], "-1", false, false, "", ""));
         assert_eq!(
             result.unwrap_err().to_string(),
             "Phase must be non-negative"
@@ -357,7 +410,7 @@ mod tests {
     #[test]
     fn non_numeric_phase_error() {
         let (_guard, root) = setup_with(single_task("T001"));
-        let result = run(&root, "T001", "", &[], "abc", false, false, "", "");
+        let result = run(&root, "T001", ea("", &[], "abc", false, false, "", ""));
         assert_eq!(
             result.unwrap_err().to_string(),
             "Invalid phase. Must be a non-negative integer"
@@ -368,7 +421,7 @@ mod tests {
     fn dependency_not_found_error() {
         let (_guard, root) = setup_with(single_task("T001"));
         let depends = vec!["T999".to_string()];
-        let result = run(&root, "T001", "", &depends, "", false, false, "", "");
+        let result = run(&root, "T001", ea("", &depends, "", false, false, "", ""));
         assert_eq!(result.unwrap_err().to_string(), "Dependency T999 not found");
     }
 
@@ -376,7 +429,7 @@ mod tests {
     fn circular_dependency_self_error() {
         let (_guard, root) = setup_with(single_task("T001"));
         let depends = vec!["T001".to_string()];
-        let result = run(&root, "T001", "", &depends, "", false, false, "", "");
+        let result = run(&root, "T001", ea("", &depends, "", false, false, "", ""));
         assert_eq!(
             result.unwrap_err().to_string(),
             "Circular dependency detected: T001 depends on itself"
@@ -392,7 +445,7 @@ mod tests {
         let (_guard, root) = setup_with(tasks);
 
         let depends = vec!["T002".to_string()];
-        let result = run(&root, "T001", "", &depends, "", false, false, "", "");
+        let result = run(&root, "T001", ea("", &depends, "", false, false, "", ""));
         assert_eq!(
             result.unwrap_err().to_string(),
             "Circular dependency detected: T001 → ... → T002"
@@ -403,7 +456,7 @@ mod tests {
     fn failed_validation_does_not_write() {
         let (_guard, root) = setup_with(single_task("T001"));
         let before = std::fs::read_to_string(format!("{root}/status.yaml")).unwrap();
-        let result = run(&root, "T001", "bogus", &[], "", false, false, "", "");
+        let result = run(&root, "T001", ea("bogus", &[], "", false, false, "", ""));
         assert!(result.is_err());
         let after = std::fs::read_to_string(format!("{root}/status.yaml")).unwrap();
         assert_eq!(before, after);
@@ -418,13 +471,15 @@ mod tests {
         let result = run(
             &root,
             "",
-            "",
-            &[],
-            "",
-            false,
-            false,
-            "0:Scaffolding,1:Foundation",
-            "T001,T002",
+            ea(
+                "",
+                &[],
+                "",
+                false,
+                false,
+                "0:Scaffolding,1:Foundation",
+                "T001,T002",
+            ),
         );
         assert!(result.is_ok());
 
@@ -438,9 +493,9 @@ mod tests {
     #[test]
     fn project_phases_replaces_existing_mapping() {
         let (_guard, root) = setup_with(single_task("T001"));
-        let result = run(&root, "", "", &[], "", false, false, "0:Old", "");
+        let result = run(&root, "", ea("", &[], "", false, false, "0:Old", ""));
         assert!(result.is_ok());
-        let result = run(&root, "", "", &[], "", false, false, "1:New", "");
+        let result = run(&root, "", ea("", &[], "", false, false, "1:New", ""));
         assert!(result.is_ok());
 
         let sf = storage::read_status_file(&root).unwrap();
@@ -454,13 +509,7 @@ mod tests {
         let result = run(
             &root,
             "",
-            "",
-            &[],
-            "",
-            false,
-            false,
-            "nocolon,abc:Name,2:Good",
-            "",
+            ea("", &[], "", false, false, "nocolon,abc:Name,2:Good", ""),
         );
         assert!(result.is_ok());
 
@@ -472,7 +521,7 @@ mod tests {
     #[test]
     fn project_no_changes_error() {
         let (_guard, root) = setup_with(single_task("T001"));
-        let result = run(&root, "", "done", &[], "1", true, false, "", "");
+        let result = run(&root, "", ea("done", &[], "1", true, false, "", ""));
         assert_eq!(
             result.unwrap_err().to_string(),
             "No project-level changes specified. Use --phases or --critical-path"
@@ -482,7 +531,7 @@ mod tests {
     #[test]
     fn critical_path_task_not_found_error() {
         let (_guard, root) = setup_with(single_task("T001"));
-        let result = run(&root, "", "", &[], "", false, false, "", "T001,T999");
+        let result = run(&root, "", ea("", &[], "", false, false, "", "T001,T999"));
         assert_eq!(
             result.unwrap_err().to_string(),
             "Task T999 in critical path not found"
@@ -493,7 +542,7 @@ mod tests {
     fn missing_status_yaml_error() {
         let dir = tempdir().unwrap();
         let root = dir.path().to_str().unwrap();
-        let result = run(root, "T001", "done", &[], "", false, false, "", "");
+        let result = run(root, "T001", ea("done", &[], "", false, false, "", ""));
         assert_eq!(
             result.unwrap_err().to_string(),
             "No status.yaml found. Run 'taskpad import' or 'taskpad new' first"
@@ -506,7 +555,7 @@ mod tests {
         // so a missing status.yaml wins over an invalid ID.
         let dir = tempdir().unwrap();
         let root = dir.path().to_str().unwrap();
-        let result = run(root, "BAD", "done", &[], "", false, false, "", "");
+        let result = run(root, "BAD", ea("done", &[], "", false, false, "", ""));
         assert_eq!(
             result.unwrap_err().to_string(),
             "No status.yaml found. Run 'taskpad import' or 'taskpad new' first"

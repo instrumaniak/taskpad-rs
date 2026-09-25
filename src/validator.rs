@@ -1,5 +1,3 @@
-#![allow(dead_code)]
-
 //! Rust port of `validator.h` / `validator.cpp` from the C++ taskpad codebase.
 //!
 //! Provides task ID validation, status validation, and dependency graph
@@ -16,7 +14,7 @@ use std::collections::{BTreeMap, HashSet};
 ///
 /// A valid ID is exactly 4 characters: `'T'` followed by three digits
 /// forming a number in `[1, 999]` (so `"T000"` is invalid).
-pub fn is_valid_task_id(id: &str) -> bool {
+pub(crate) fn is_valid_task_id(id: &str) -> bool {
     if id.len() != 4 {
         return false;
     }
@@ -39,7 +37,7 @@ pub fn is_valid_task_id(id: &str) -> bool {
 /// Check whether a string is a valid task status, matching C++ `isValidStatus`.
 ///
 /// Valid statuses are `"pending"`, `"in_progress"`, and `"done"`.
-pub fn is_valid_status(status: &str) -> bool {
+pub(crate) fn is_valid_status(status: &str) -> bool {
     status == "pending" || status == "in_progress" || status == "done"
 }
 
@@ -50,8 +48,12 @@ pub fn is_valid_status(status: &str) -> bool {
 /// Check that a task with the given ID exists in `tasks`, matching
 /// C++ `validateTaskExists`.
 ///
+/// Commands surface the same string via [`TaskpadError::task_not_found`];
+/// this helper itself is only exercised by unit tests, hence the scoped allow.
+///
 /// Returns an error if the task is not found.
-pub fn validate_task_exists(id: &str, tasks: &BTreeMap<String, Task>) -> Result<()> {
+#[allow(dead_code)]
+pub(crate) fn validate_task_exists(id: &str, tasks: &BTreeMap<String, Task>) -> Result<()> {
     if tasks.get(id).is_none() {
         return Err(TaskpadError::Message(format!("Task {id} not found")));
     }
@@ -66,7 +68,10 @@ pub fn validate_task_exists(id: &str, tasks: &BTreeMap<String, Task>) -> Result<
 /// C++ `validateDependsExist`.
 ///
 /// Returns an error on the first missing dependency.
-pub fn validate_depends_exist(depends: &[String], tasks: &BTreeMap<String, Task>) -> Result<()> {
+pub(crate) fn validate_depends_exist(
+    depends: &[String],
+    tasks: &BTreeMap<String, Task>,
+) -> Result<()> {
     for dep in depends {
         if tasks.get(dep).is_none() {
             return Err(TaskpadError::Message(format!("Dependency {dep} not found")));
@@ -92,7 +97,7 @@ pub fn validate_depends_exist(depends: &[String], tasks: &BTreeMap<String, Task>
 ///
 /// The DFS visited set is recreated per outer dependency, not shared
 /// across them.
-pub fn validate_circular_dependencies(
+pub(crate) fn validate_circular_dependencies(
     task_id: &str,
     depends: &[String],
     tasks: &BTreeMap<String, Task>,
