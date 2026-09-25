@@ -1,10 +1,11 @@
-use crate::commands::{all_deps_done, extract_goal, get_first_step};
+use crate::commands::{
+    all_deps_done, goal_lines, load_status, require_task_id, task_not_found, unmet_deps,
+};
 use crate::models::Result;
 use crate::models::Status;
 use crate::models::TaskpadError;
+use crate::models::status_to_string;
 use crate::storage;
-use crate::utils;
-use crate::validator;
 
 /// Start working on a task.
 ///
@@ -12,21 +13,18 @@ use crate::validator;
 /// in_progress or done, verifies dependencies (unless --force),
 /// then sets status to InProgress and writes status.yaml.
 /// Matching C++ `Commands::do_`.
-pub fn run(tasks_dir: &str, task_id: &str, force: bool) -> Result<()> {
-    if !validator::is_valid_task_id(task_id) {
-        return Err(TaskpadError::Message(
-            "Invalid task ID format. Expected TXXX (see Task ID Format)".into(),
-        ));
-    }
+///
+/// The task name is printed verbatim (`Started T001 — <name>`), so ANSI
+/// escape sequences or other control characters in `name` reach stdout
+/// untouched — C++ parity, see the note in [`crate::commands`].
+pub(crate) fn run(tasks_dir: &str, task_id: &str, force: bool) -> Result<()> {
+    require_task_id(task_id)?;
 
-    let dir = utils::resolve_task_dir(tasks_dir);
-    let mut sf = storage::read_status_file(&dir)?;
+    let (dir, mut sf) = load_status(tasks_dir)?;
 
     let task = match sf.tasks.get(task_id) {
         Some(t) => t.clone(),
-        None => {
-            return Err(TaskpadError::Message(format!("Task {task_id} not found")));
-        }
+        None => return Err(task_not_found(task_id)),
     };
 
     if task.status == Status::InProgress {
@@ -42,17 +40,16 @@ pub fn run(tasks_dir: &str, task_id: &str, force: bool) -> Result<()> {
 
     if !force && !all_deps_done(&task, &sf.tasks) {
         let mut blockers: Vec<String> = Vec::new();
-        for dep in &task.depends {
-            if let Some(dep_task) = sf.tasks.get(dep)
-                && dep_task.status != Status::Done
-            {
-                blockers.push(format!(
-                    "{} ({})",
-                    dep,
-                    crate::models::status_to_string(dep_task.status)
-                ));
-            }
+        for (dep, status) in unmet_deps(&task, &sf.tasks) {
+            blockers.push(format!("{dep} ({})", status_to_string(status)));
         }
+        // Note the degenerate case: `all_deps_done` is also false when a
+        // dependency ID is missing from status.yaml entirely, but
+        // `unmet_deps` can only report IDs it can look up. So a task whose
+        // every dependency is absent yields an empty list here and the
+        // message reads `Unmet dependencies: . Use --force to proceed`.
+        // C++ parity — commands.cpp:645-656 walks the same two loops and
+        // produces the same empty-list message; left as is.
         return Err(TaskpadError::Message(format!(
             "Unmet dependencies: {}. Use --force to proceed",
             blockers.join(", ")
@@ -72,13 +69,8 @@ pub fn run(tasks_dir: &str, task_id: &str, force: bool) -> Result<()> {
     if let Ok(content) = storage::read_task_file(&path) {
         println!();
         println!("Now reading {}...", path);
-        let goal = extract_goal(&content);
-        if !goal.is_empty() {
-            println!("Goal: {}", goal);
-        }
-        let first = get_first_step(&content);
-        if !first.is_empty() {
-            println!("First step: {}", first);
+        for line in goal_lines(&content) {
+            println!("{line}");
         }
     }
 
@@ -90,6 +82,7 @@ mod tests {
     use super::*;
     use crate::models::StatusFile;
     use crate::models::Task;
+    use tempfile::tempdir;
 
     fn make_task(id: &str, status: Status) -> Task {
         Task {
@@ -116,30 +109,28 @@ mod tests {
 
     #[test]
     fn unmet_deps_error_message() {
+        let dir = tempdir().unwrap();
+        let root = dir.path().to_str().unwrap();
+        storage::create_config(root, "tasks").unwrap();
+        std::fs::create_dir_all(format!("{}/tasks", root)).ok();
+
         let mut sf = StatusFile::default();
         sf.tasks
             .insert("T001".to_string(), make_task("T001", Status::Pending));
-        sf.tasks
-            .insert("T002".to_string(), make_task("T002", Status::Pending));
-        // T002 depends on T001 which is also pending -> unmet deps
+        // T002 depends on T001 which is still pending -> unmet deps.
         let mut t002 = make_task("T002", Status::Pending);
         t002.depends = vec!["T001".to_string()];
         sf.tasks.insert("T002".to_string(), t002);
+        storage::write_status_file(root, &sf).unwrap();
 
-        // We can't easily test the full run without filesystem,
-        // but we can test the error message logic conceptually.
-        // The blocker string format is tested via the message construction.
-    }
+        let result = run(root, "T002", false);
+        assert!(result.is_err());
+        assert_eq!(
+            result.unwrap_err().to_string(),
+            "Unmet dependencies: T001 (pending). Use --force to proceed"
+        );
 
-    #[test]
-    fn test_extract_goal() {
-        let content = "## Goal\n\nMy goal\n## Phase:";
-        assert_eq!(extract_goal(content), "My goal");
-    }
-
-    #[test]
-    fn test_get_first_step() {
-        let content = "## Implementation Steps\n\n1. Do it\n";
-        assert_eq!(get_first_step(content), "Do it");
+        // With --force the same call succeeds.
+        assert!(run(root, "T002", true).is_ok());
     }
 }

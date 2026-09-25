@@ -1,9 +1,7 @@
-use crate::commands::count_status;
+use crate::commands::{count_all, load_status};
 use crate::models::Result;
 use crate::models::Status;
 use crate::models::StatusFile;
-use crate::storage;
-use crate::utils;
 use std::collections::BTreeMap;
 
 /// Show overall progress statistics for the project.
@@ -11,9 +9,8 @@ use std::collections::BTreeMap;
 /// Prints totals with percentages, a per-phase done/total breakdown in
 /// phase order, and the critical path with its own status counts.
 /// Matching C++ `Commands::summary`.
-pub fn run(tasks_dir: &str) -> Result<()> {
-    let dir = utils::resolve_task_dir(tasks_dir);
-    let sf = storage::read_status_file(&dir)?;
+pub(crate) fn run(tasks_dir: &str) -> Result<()> {
+    let (_, sf) = load_status(tasks_dir)?;
 
     for line in render(&sf) {
         println!("{}", line);
@@ -28,9 +25,10 @@ fn render(sf: &StatusFile) -> Vec<String> {
     let mut lines = Vec::new();
 
     let total = sf.tasks.len() as i32;
-    let done = count_status(&sf.tasks, Status::Done);
-    let in_prog = count_status(&sf.tasks, Status::InProgress);
-    let pend = count_status(&sf.tasks, Status::Pending);
+    let counts = count_all(&sf.tasks);
+    let done = counts.done;
+    let in_prog = counts.in_progress;
+    let pend = counts.pending;
 
     lines.push("Task Summary".to_string());
     lines.push("\u{2500}".repeat(13));
@@ -112,8 +110,20 @@ fn render(sf: &StatusFile) -> Vec<String> {
 }
 
 /// Format `count / total` as a percentage with one decimal place.
+///
 /// Matching C++ `printPct` inside `Commands::summary` (`std::fixed`,
 /// precision 1; `"0.0%"` when `total == 0`).
+///
+/// Rounding parity note: Rust's `{:.1}` and libstdc++'s
+/// `std::fixed << std::setprecision(1)` were compared directly (scratch
+/// programs formatting the same `f64` values, including exact binary
+/// ties such as `6.25` and `31.25`): both round ties to even
+/// (`6.25 -> "6.2"`, `31.25 -> "31.2"`) and agreed byte-for-byte on
+/// every value tried (`6.2%`, `31.2%`, `66.7%`, `33.3%`, `18.8%`,
+/// `43.8%`, `56.2%`, `68.8%`, `81.2%`, `93.8%`, `25.0%`, `100.0%`).
+/// So no custom half-away emulation is needed — the plain `{:.1}`
+/// formatting below already matches the C++ output, and the tests
+/// pin the tie cases to guard against regressions.
 fn print_pct(count: i32, total: i32) -> String {
     if total == 0 {
         return "0.0%".to_string();
@@ -125,6 +135,7 @@ fn print_pct(count: i32, total: i32) -> String {
 mod tests {
     use super::*;
     use crate::models::Task;
+    use crate::storage;
     use tempfile::tempdir;
 
     fn make_task(id: &str, status: Status, phase: i32) -> Task {
@@ -150,6 +161,22 @@ mod tests {
     #[test]
     fn print_pct_zero_total_is_zero_point_zero() {
         assert_eq!(print_pct(0, 0), "0.0%");
+    }
+
+    #[test]
+    fn print_pct_exact_ties_match_cpp_fixed_precision_1() {
+        // Exact binary ties: `1/16 = 6.25%`, `5/16 = 31.25%`,
+        // `3/16 = 18.75%`. Verified against libstdc++
+        // `std::fixed << std::setprecision(1)`, which rounds these ties
+        // to even exactly like Rust's `{:.1}` — see the note on
+        // `print_pct`. Pinned here so a future "fix" to half-away
+        // rounding would fail loudly instead of silently breaking
+        // C++ byte parity.
+        assert_eq!(print_pct(1, 16), "6.2%");
+        assert_eq!(print_pct(5, 16), "31.2%");
+        assert_eq!(print_pct(3, 16), "18.8%");
+        assert_eq!(print_pct(7, 16), "43.8%");
+        assert_eq!(print_pct(9, 16), "56.2%");
     }
 
     #[test]
