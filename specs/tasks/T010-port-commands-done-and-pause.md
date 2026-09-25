@@ -35,13 +35,17 @@ and `src/commands/pause.rs`.
 
 ## Acceptance Criteria
 
-- [ ] `cargo build` succeeds
+- [x] `cargo build` succeeds
 - [ ] `tests/e2e/done.mjs` and `tests/e2e/pause.mjs` pass — **verification deferred to
       T015** (AGENTS.md Locked decision §7). Author both files in *this* repo's
       `tests/e2e/` (never in `../taskpad`); leave this box unchecked at T010 with a Notes
       line `E2E deferred to T015 (per AGENTS.md)`
-- [ ] `cargo clippy --all-targets -- -D warnings` succeeds
+- [x] `cargo clippy --all-targets -- -D warnings` succeeds
 
 ## Notes
 
 (filled in during/after implementation)
+
+- E2E deferred to T015 (per AGENTS.md)
+
+- [2026-09-25 19:34] Ported commands done+pause

@@ -66,7 +66,7 @@ tasks:
     critical: true
   T010:
     name: Port Commands Done And Pause
-    status: pending
+    status: done
     depends:
       - T009
     phase: 3

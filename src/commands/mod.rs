@@ -7,10 +7,12 @@
 //! that are shared across multiple commands.
 
 pub mod do_cmd;
+pub mod done;
 pub mod import;
 pub mod init;
 pub mod new;
 pub mod next;
+pub mod pause;
 pub mod status;
 
 use crate::models::Status;
