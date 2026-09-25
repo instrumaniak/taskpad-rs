@@ -9,7 +9,7 @@
 use crate::models::Result;
 use crate::models::StatusFile;
 use crate::models::TaskpadError;
-use crate::utils::normalize_path;
+use crate::utils::{current_timestamp, normalize_path, to_kebab_case};
 use serde::Deserialize;
 use serde::Serialize;
 use std::path::Path;
@@ -159,6 +159,115 @@ pub fn write_status_file(task_dir: &str, sf: &StatusFile) -> Result<()> {
         ))),
     }
 }
+
+// ---------------------------------------------------------------------------
+// Task files (T*.md)
+// ---------------------------------------------------------------------------
+
+/// Return the file path for a task's T*.md file.
+///
+/// `normalize_path(task_dir) + "/" + task_id + "-" + to_kebab_case(task_name) + ".md"`.
+/// If `to_kebab_case` yields an empty string, the filename is just
+/// `task_id + ".md"`.
+pub fn task_file_path(task_dir: &str, task_id: &str, task_name: &str) -> String {
+    let dir = normalize_path(task_dir);
+    let kebab = to_kebab_case(task_name);
+    if kebab.is_empty() {
+        format!("{}/{}.md", dir, task_id)
+    } else {
+        format!("{}/{}-{}.md", dir, task_id, kebab)
+    }
+}
+
+/// Read the contents of a task file at `path`.
+///
+/// Returns `Err` with `"Task file {path} not found"` if the file does not exist.
+pub fn read_task_file(path: &str) -> Result<String> {
+    match std::fs::read_to_string(path) {
+        Ok(c) => Ok(c),
+        Err(_) => Err(TaskpadError::Message(format!(
+            "Task file {} not found",
+            path
+        ))),
+    }
+}
+
+/// Write the task template to `path`.
+///
+/// Substitutes `<ID>` and `<Name>` in the template.  The template is defined
+/// by spec.main.md §4 and must end with exactly one `\n`.
+pub fn write_task_file(path: &str, task_id: &str, task_name: &str) -> Result<()> {
+    let content = TASK_TEMPLATE
+        .replace("<ID>", task_id)
+        .replace("<Name>", task_name);
+    match std::fs::write(path, content) {
+        Ok(()) => Ok(()),
+        Err(_) => Err(TaskpadError::Message(format!(
+            "Cannot write to {}. Check permissions",
+            path
+        ))),
+    }
+}
+
+/// Append a log entry to the `## Notes` section of a task file.
+///
+/// Entry format: `- [{current_timestamp}] {message}`.
+/// If the file has no `## Notes` section, one is created.
+pub fn append_log(path: &str, message: &str) -> Result<()> {
+    let mut content = match std::fs::read_to_string(path) {
+        Ok(c) => c,
+        Err(_) => {
+            return Err(TaskpadError::Message(format!(
+                "Task file {} not found",
+                path
+            )));
+        }
+    };
+
+    let entry = format!("- [{}] {}", current_timestamp(), message);
+
+    let notes_pos = content
+        .rfind("\n## Notes")
+        .or_else(|| content.rfind("## Notes"));
+
+    if let Some(notes_pos) = notes_pos {
+        let mut insert_pos = notes_pos;
+        let eol = content[notes_pos + 2..].find('\n');
+        if let Some(eol_offset) = eol {
+            insert_pos = notes_pos + 2 + eol_offset + 1;
+        }
+
+        let next_section = content[insert_pos..].find("\n## ");
+        if let Some(next_offset) = next_section {
+            let next_section_pos = insert_pos + next_offset;
+            content = format!(
+                "{}\n{}{}",
+                &content[..next_section_pos],
+                entry,
+                &content[next_section_pos..]
+            );
+        } else {
+            content.push_str(&format!("\n{}\n", entry));
+        }
+    } else {
+        if !content.is_empty() && !content.ends_with('\n') {
+            content.push('\n');
+        }
+        content.push_str(&format!("\n## Notes\n\n{}\n", entry));
+    }
+
+    match std::fs::write(path, content) {
+        Ok(()) => Ok(()),
+        Err(_) => Err(TaskpadError::Message(format!(
+            "Cannot write to {}. Check permissions",
+            path
+        ))),
+    }
+}
+
+/// The task-file template from spec.main.md §4, with `<ID>` and `<Name>`
+/// placeholders.  The string ends with exactly one `\n`.
+const TASK_TEMPLATE: &str = "# <ID>: <Name>\n\n## Goal\n\n(Describe the goal)\n\n## Depends On\n\n(None)\n\n## Phase:\n\n(Add phase number here)\n\n## Critical:\n\n(Add critical flag here)\n\n## Spec References\n\n- (Add spec references here)\n\n## Files to Create/Modify\n\n- (Add files here)\n\n## Implementation Steps\n\n1. (Add steps here)\n\n## Constraints\n\n- (Add constraints here)\n\n## Acceptance Criteria\n\n- [ ] (Add criteria here)\n\n## Notes\n\n(filled in during/after implementation)\n";
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -425,5 +534,131 @@ mod tests {
         create_config(root, "specs/tasks").unwrap();
         let content = fs::read_to_string(format!("{}/.taskpad", root)).unwrap();
         assert_eq!(content, "# taskpad project config\ntask-dir: specs/tasks\n");
+    }
+
+    // ---- task_file_path ----
+
+    #[test]
+    fn task_file_path_with_name() {
+        assert_eq!(
+            task_file_path("specs/tasks", "T001", "Project Setup"),
+            "specs/tasks/T001-project-setup.md"
+        );
+    }
+
+    #[test]
+    fn task_file_path_empty_name() {
+        assert_eq!(
+            task_file_path("specs/tasks", "T001", ""),
+            "specs/tasks/T001.md"
+        );
+    }
+
+    // ---- read_task_file ----
+
+    #[test]
+    fn read_task_file_missing() {
+        let dir = tempdir().unwrap();
+        let path = format!("{}/T001-missing.md", dir.path().to_str().unwrap());
+        let result = read_task_file(&path);
+        assert!(result.is_err());
+        let err_msg = result.unwrap_err().to_string();
+        assert!(err_msg.contains("not found"), "got: {}", err_msg);
+    }
+
+    #[test]
+    fn read_task_file_existing() {
+        let dir = tempdir().unwrap();
+        let path = format!("{}/T001-test.md", dir.path().to_str().unwrap());
+        fs::write(&path, "hello world").unwrap();
+        let result = read_task_file(&path);
+        assert!(result.is_ok());
+        assert_eq!(result.unwrap(), "hello world");
+    }
+
+    // ---- write_task_file ----
+
+    #[test]
+    fn write_task_file_exact_content() {
+        let dir = tempdir().unwrap();
+        let path = format!("{}/T001-test.md", dir.path().to_str().unwrap());
+        write_task_file(&path, "T001", "Test Name").unwrap();
+        let content = fs::read_to_string(&path).unwrap();
+        let expected = TASK_TEMPLATE
+            .replace("<ID>", "T001")
+            .replace("<Name>", "Test Name");
+        assert_eq!(content, expected);
+        assert!(
+            content.ends_with("(filled in during/after implementation)\n"),
+            "must end with '(filled in during/after implementation)\\n'"
+        );
+        assert!(
+            !content.contains("## Status:"),
+            "must not contain ## Status: line"
+        );
+    }
+
+    // ---- append_log ----
+
+    #[test]
+    fn append_log_no_notes_section() {
+        let dir = tempdir().unwrap();
+        let path = format!("{}/T001-test.md", dir.path().to_str().unwrap());
+        fs::write(&path, "# T001: Test\n").unwrap();
+        append_log(&path, "first log").unwrap();
+        let content = fs::read_to_string(&path).unwrap();
+        assert!(content.contains("## Notes"));
+        assert!(content.contains("- ["));
+        assert!(content.contains("first log"));
+        // The ## Notes section should be created
+        assert!(content.contains("\n## Notes\n\n"));
+    }
+
+    #[test]
+    fn append_log_notes_is_last_section() {
+        let dir = tempdir().unwrap();
+        let path = format!("{}/T001-test.md", dir.path().to_str().unwrap());
+        fs::write(&path, "# T001: Test\n\n## Notes\n\nexisting note\n").unwrap();
+        append_log(&path, "second log").unwrap();
+        let content = fs::read_to_string(&path).unwrap();
+        assert!(content.contains("- ["));
+        assert!(content.contains("second log"));
+        // The entry should be under ## Notes
+        let notes_pos = content.rfind("## Notes").unwrap();
+        let after_notes = &content[notes_pos..];
+        assert!(after_notes.contains("second log"));
+    }
+
+    #[test]
+    fn append_log_notes_followed_by_another_section() {
+        let dir = tempdir().unwrap();
+        let path = format!("{}/T001-test.md", dir.path().to_str().unwrap());
+        fs::write(
+            &path,
+            "# T001: Test\n\n## Notes\n\nexisting note\n\n## Files\n\n- a\n",
+        )
+        .unwrap();
+        append_log(&path, "inserted log").unwrap();
+        let content = fs::read_to_string(&path).unwrap();
+        // The entry should appear between ## Notes and ## Files
+        let notes_idx = content.find("## Notes").unwrap();
+        let files_idx = content.find("## Files").unwrap();
+        assert!(notes_idx < files_idx);
+        assert!(content.contains("inserted log"));
+        // inserted_log should be between Notes and Files
+        let between = &content[notes_idx..files_idx];
+        assert!(between.contains("inserted log"));
+    }
+
+    // ---- timestamp format ----
+
+    #[test]
+    fn current_timestamp_format() {
+        let ts = current_timestamp();
+        assert_eq!(ts.len(), 16);
+        assert_eq!(ts.chars().nth(4), Some('-'));
+        assert_eq!(ts.chars().nth(7), Some('-'));
+        assert_eq!(ts.chars().nth(10), Some(' '));
+        assert_eq!(ts.chars().nth(13), Some(':'));
     }
 }

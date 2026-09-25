@@ -49,3 +49,5 @@ and circular-dependency detection.
 ## Notes
 
 (filled in during/after implementation)
+
+- [2026-09-25 18:37] Port validator.rs: is_valid_task_id, is_valid_status, validate_task_exists, validate_depends_exist, validate_circular_dependency

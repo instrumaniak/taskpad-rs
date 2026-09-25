@@ -21,7 +21,7 @@ tasks:
     critical: false
   T004:
     name: Port Storage Module Config And Status Yaml
-    status: pending
+    status: done
     depends:
       - T002
       - T003
@@ -36,7 +36,7 @@ tasks:
     critical: false
   T006:
     name: Port Validator Module
-    status: pending
+    status: done
     depends:
       - T002
     phase: 2

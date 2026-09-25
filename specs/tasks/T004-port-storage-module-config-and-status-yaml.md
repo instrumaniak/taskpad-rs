@@ -75,3 +75,5 @@ a YAML node tree.
 ## Notes
 
 (filled in during/after implementation)
+
+- [2026-09-25 18:44] Ported storage: .taskpad + status.yaml read/write with byte parity; tempfile tests; C++ fixture parses
