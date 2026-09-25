@@ -3,6 +3,7 @@ name = "taskpad"
 version = "1.0.0"
 edition = "2024"
 description = "Task tracking CLI with phase-aware dependency support (Rust port of taskpad)"
+repository = "https://github.com/instrumaniak/taskpad-rs"
 
 [dependencies]
 clap = { version = "4", features = ["derive"] }

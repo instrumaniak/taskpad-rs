@@ -114,7 +114,7 @@ tasks:
     critical: true
   T016:
     name: Update Packaging Docs And Release Build
-    status: pending
+    status: done
     depends:
       - T015
     phase: 5
