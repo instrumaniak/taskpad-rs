@@ -52,4 +52,10 @@ wrapper.
 
 ## Notes
 
-(filled in during/after implementation)
+- Step 5 resolved as `Display`/`FromStr` (no separate `status_to_string`/`string_to_status` fns): `commands.cpp` uses the bare strings in message composition (e.g. `blockers += dep + " (" + statusToString(...) + ")"`), while the bracketed terminal rendering `[pending]` comes from a *separate* `statusColor()` static helper that belongs in `commands/mod.rs` (T007+), not `models`. So `Display` = bare string (= `statusToString` parity), and the spec §3 "Display" column describes terminal output, not the `Display` impl.
+- Byte parity for `depends`: absent / `~` / `null` / `[]` all deserialize to an empty vec; an empty vec serializes as `depends: ~` via `serde_saphyr::NullableTilde`, matching the C++ emitter (Locked decision §4). This had to live in `models.rs` (the field attributes) because T004's file list is `storage.rs` only.
+- Accepted reader divergence (flagged, not a spec↔C++ conflict): C++ silently ignores a `tasks:`/`phases:` node of the wrong *shape* (returns empty, success); serde surfaces `Invalid status.yaml format: …`. Only reachable with hand-corrupted files; none of the E2E fixtures exercise it.
+- `#![allow(dead_code)]` at the module top: the public API here (`Status`, `Task`, `ProjectConfig`, `StatusFile`, `TaskpadError`, `Result`) is consumed by later modules (T004+) and by tests, so it is dead only during this task's build.
+- `phases` uses `BTreeMap<i32, String>` as spec §3 requires, giving ordered phase output.
+
+- [2026-09-25 18:27] Ported models.h/cpp to src/models.rs: Status (serde rename + custom Deserialize for unknown→Pending), Task with id#[serde(skip)] and null-tolerant depends, ProjectConfig(BTreeMap), StatusFile(flatten config), TaskpadError/Result; 10 unit tests; build + clippy + test green

@@ -7,7 +7,7 @@ tasks:
     critical: true
   T002:
     name: Port Models Module
-    status: pending
+    status: done
     depends:
       - T001
     phase: 1
