@@ -26,16 +26,20 @@ and `src/commands/pause.rs`.
 
 ## Implementation Steps
 
-1. Port `done`: validate task exists, transition to done, scan for tasks newly unblocked
-   (all dependencies now done) and print them, "Already done" short-circuit.
-2. Port `pause`: validate task exists, transition in_progress → pending, "Already pending"
-   short-circuit.
+1. Port `done`: validate task exists, transition to done (allowed from pending *or*
+   in_progress), scan for tasks newly unblocked (all dependencies now done) and print them,
+   "Already done" short-circuit — an **error** (`error: Task T003 already done`, exit 1).
+2. Port `pause`: validate task exists, transition → pending — the C++ version accepts any
+   non-pending status (even `done`), rejecting only already-pending — "Already pending"
+   short-circuit is an **error** (`error: Task T003 already pending`, exit 1).
 
 ## Acceptance Criteria
 
 - [ ] `cargo build` succeeds
-- [ ] `tests/e2e/done.mjs` and `tests/e2e/pause.mjs` pass once wired in T014 (create if
-      missing in the C++ repo's `tests/e2e/`)
+- [ ] `tests/e2e/done.mjs` and `tests/e2e/pause.mjs` pass — **verification deferred to
+      T015** (AGENTS.md Locked decision §7). Author both files in *this* repo's
+      `tests/e2e/` (never in `../taskpad`); leave this box unchecked at T010 with a Notes
+      line `E2E deferred to T015 (per AGENTS.md)`
 - [ ] `cargo clippy --all-targets -- -D warnings` succeeds
 
 ## Notes

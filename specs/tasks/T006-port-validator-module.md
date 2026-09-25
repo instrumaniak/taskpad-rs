@@ -29,8 +29,12 @@ and circular-dependency detection.
 2. Port `validate_circular_dependencies` — depth-first walk from each proposed dependency
    looking for a path back to the task being validated. The C++ version uses an explicit
    stack + visited-set; a direct translation (`Vec` as stack, `HashSet<String>` visited) is
-   fine, or a recursive version if preferred — behavior (which cycles are detected, and the
-   exact error message's `→`-joined path) must match, not the traversal implementation.
+   fine, or a recursive version if preferred — behavior (which cycles are detected) and the
+   exact error message strings must match `validator.cpp`: `Circular dependency detected:
+   <id> depends on itself` (self-cycle) and `Circular dependency detected: <id> → ... →
+   <dep>` (path found back — note the literal ` → ... → ` with spaces; it is *not* a fully
+   joined path like `T003 → T005 → T003`, despite older spec wording — see AGENTS.md
+   known-conflicts #7).
 3. Port `validate_task_exists`/`validate_depends_exist`.
 
 ## Acceptance Criteria

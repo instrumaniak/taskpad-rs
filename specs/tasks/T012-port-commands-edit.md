@@ -39,8 +39,10 @@ command after `import`, handling both task-level and project-level metadata edit
 ## Acceptance Criteria
 
 - [ ] `cargo build` succeeds
-- [ ] `tests/e2e/edit.mjs` passes once wired in T014 (create if missing in the C++ repo's
-      `tests/e2e/`) covering both task-level and project-level flag combinations
+- [ ] `tests/e2e/edit.mjs` covering both task-level and project-level flag combinations
+      passes — **verification deferred to T015** (AGENTS.md Locked decision §7). Author it
+      in *this* repo's `tests/e2e/` (never in `../taskpad`); leave this box unchecked at
+      T012 with a Notes line `E2E deferred to T015 (per AGENTS.md)`
 - [ ] `cargo clippy --all-targets -- -D warnings` succeeds
 
 ## Notes

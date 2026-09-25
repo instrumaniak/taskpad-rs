@@ -35,10 +35,10 @@ helpers (`extract_phase`, `extract_critical`, `extract_section_list_items`).
    pure string functions with no tricky edge cases beyond what the C++ version already
    handles (see its unit tests for the exact edge-case list to preserve).
 2. Port `extract_phase`, `extract_critical`, `extract_section_list_items` — these do manual
-   substring scanning in C++; either port that directly or reimplement using Rust string
-   methods/`regex` crate if it measurably simplifies the code without changing behavior on
-   any case the C++ unit tests cover. Behavior parity matters more than implementation style
-   here, since `import`'s correctness depends on these exactly matching.
+   substring scanning in C++; port that directly using Rust string methods. Do **not** add
+   a `regex` crate dependency (the `spec.main.md` §8 crate list is closed — see AGENTS.md
+   Locked decision §1). Behavior parity matters more than implementation style here, since
+   `import`'s correctness depends on these exactly matching.
 3. `resolve_task_dir` calls into `storage::read_task_dir` in the C++ version (a
    utils→storage dependency, mirrored by storage→utils for `normalize_path` etc.). This is
    fine within a single crate — implement the function signature now; if `storage.rs` isn't

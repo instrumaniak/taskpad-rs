@@ -2,9 +2,9 @@
 
 ## Goal
 
-Port `cli.cpp`/`main.cpp` to `src/cli.rs`/`src/main.rs`, wiring all twelve subcommands via
-`clap`'s derive API and dispatching to the command modules built in T007–T013. This is the
-integration point where the Rust binary first becomes fully runnable end-to-end.
+Port `cli.cpp`/`main.cpp` to `src/cli.rs`/`src/main.rs`, wiring all thirteen subcommands
+via `clap`'s derive API and dispatching to the command modules built in T007–T013. This is
+the integration point where the Rust binary first becomes fully runnable end-to-end.
 
 ## Depends On
 
@@ -31,14 +31,16 @@ integration point where the Rust binary first becomes fully runnable end-to-end.
   `clap::Subcommand` enum with one variant per command (mirroring the C++ `CLI::App*`
   subcommands), each carrying its own args/flags per `spec.main.md` §5
 - `src/main.rs` (MODIFY) — parse args, resolve `tasks_dir` via
-  `utils::resolve_task_dir` (§4 resolution order), match on the subcommand enum and call the
-  matching `commands::<name>::run(...)`, convert any `Err(TaskpadError)` to
+  `utils::resolve_task_dir` (§5 Global Flags resolution order), match on the subcommand enum
+  and call the matching `commands::<name>::run(...)`, convert any `Err(TaskpadError)` to
   `eprintln!("error: {msg}")` + `std::process::exit(1)`
 
 ## Implementation Steps
 
-1. Define the `clap::Subcommand` enum with all twelve variants, matching each command's
-   exact flags from `spec.main.md` §5 (repeatable `--depends` as `Vec<String>` with
+1. Define the `clap::Subcommand` enum with all thirteen variants (init, import, new,
+   status, next, do, done, pause, deps, log, edit, summary, remove — the original "twelve"
+   was a typo; 13 matches `cli.cpp` and `spec.main.md` §5), matching each command's exact
+   flags from `spec.main.md` §5 (repeatable `--depends` as `Vec<String>` with
    `#[arg(long)]`; `--force`/`--critical`/`--no-critical`/`--all` as `bool` flags via
    `#[arg(long)]`; positional `id`/`name`/`message` args as required `String`s where the C++
    version marks them `->required()`).
@@ -54,8 +56,10 @@ integration point where the Rust binary first becomes fully runnable end-to-end.
 
 - [ ] `cargo build --release` succeeds and produces a working `target/release/taskpad`
       binary
-- [ ] `taskpad --help` lists all twelve subcommands with descriptions matching the C++
-      version's `CLI::App` descriptions
+- [ ] `taskpad --help` lists all thirteen subcommands with descriptions matching the C++
+      version's `CLI::App` descriptions (note: clap's help layout and bad-flag exit codes
+      differ from CLI11's — no E2E test pins those, so don't imitate CLI11's nonstandard
+      codes like 106/109)
 - [ ] Manually running through Appendix A's example workflow (`init`, `new`, `next`, `do`,
       `done`, `status`) against a scratch directory produces output matching the C++
       binary's output for the same sequence

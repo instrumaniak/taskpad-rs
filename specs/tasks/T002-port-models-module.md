@@ -32,8 +32,9 @@ wrapper.
    derive default).
 2. Define `Task`, `ProjectConfig` (using `BTreeMap<i32, String>` for `phases` — see spec §3
    for why), and `StatusFile` structs with `serde` derives.
-3. Decide and document (module doc comment) whether `Task.id` is kept as a redundant field
-   or dropped in favor of threading the map key separately — see spec §3's note on this.
+3. Document `Task.id` per spec §3's locked decision (keep the field, `#[serde(skip)]`,
+   re-threaded from the status.yaml map key by `storage::read_status_file`) in `models.rs`'s
+   module doc comment, with a note that `storage.rs` cross-references it (T004).
 4. Define `TaskpadError` (via `thiserror`) and the crate's `Result<T>` alias.
 5. Port `status_to_string`/`string_to_status` equivalents (or rely on serde's rename
    attributes plus a `Display` impl if that fully covers the C++ functions' call sites —
@@ -43,8 +44,10 @@ wrapper.
 
 - [ ] `cargo build` succeeds
 - [ ] Unit tests (`#[cfg(test)] mod tests` in `models.rs`) cover: `Status` string round-trip
-      for all three variants; a `Task`/`StatusFile` serde round-trip through the chosen YAML
-      crate produces the same struct back
+      for all three variants; a `StatusFile` serde round-trip through `serde-saphyr` produces
+      the same struct back — including `Task.id`, which the storage-style map-key
+      re-threading restores. (A bare `Task` round-trip drops `id` since it is
+      `#[serde(skip)]`; for that case compare all the other fields.)
 - [ ] `cargo clippy --all-targets -- -D warnings` succeeds
 
 ## Notes

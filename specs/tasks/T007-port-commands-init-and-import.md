@@ -39,9 +39,11 @@ signature shape, error-to-stderr convention) the rest of `commands/*.rs` follows
    defaults to pending)/`## Depends On`/`## Phase:`/`## Critical:` from each via
    `utils::extract_*` functions and a depends-extraction helper (port `extractDepends` from
    `commands.cpp` — it's not in `utils.cpp`, it lives in `commands.cpp` itself), build a
-   `StatusFile`, validate no circular dependencies across the discovered set, write via
-   `storage::write_status_file`. Respect `--force` for overwriting an existing
-   `status.yaml`.
+   `StatusFile`, validate no circular dependencies across the discovered set (missing deps
+   and cycles are collected and reported as `warning:` lines on stderr — status.yaml is
+   still written and the exit code stays 0, per `import.mjs` and AGENTS.md known-conflicts
+   #6), write via `storage::write_status_file`. Respect `--force` for overwriting an
+   existing `status.yaml`.
 3. Establish the command-function signature convention here for the rest of the port:
    `pub fn run(tasks_dir: &str, ...) -> Result<()>`, printing success output directly to
    stdout inside the function and letting `main.rs` handle the `Err` → `error: {msg}` stderr
@@ -52,9 +54,12 @@ signature shape, error-to-stderr convention) the rest of `commands/*.rs` follows
 - [ ] `cargo build` succeeds
 - [ ] Unit tests cover the pure parts (e.g. dependency-extraction from a Notes-section-style
       string) where practical without a real filesystem
-- [ ] `tests/e2e/init.mjs` and `tests/e2e/import.mjs` pass against a debug build once wired
-      in T014 (these two files may need to be created if the C++ repo's copy doesn't already
-      cover `init` — check `tests/e2e/` first; `import.mjs` already exists in the C++ repo)
+- [ ] `tests/e2e/init.mjs` and `tests/e2e/import.mjs` pass against the release build —
+      **verification deferred to T015** (AGENTS.md Locked decision §7: the suite can't run
+      before T014 wiring + T015 `helpers.mjs` rewire). As part of this task, author
+      `init.mjs` in *this* repo's `tests/e2e/` if missing; `import.mjs` is copied from the
+      C++ repo at T015. Leave this box unchecked at T007 with a Notes line
+      `E2E deferred to T015 (per AGENTS.md)`
 - [ ] `cargo clippy --all-targets -- -D warnings` succeeds
 
 ## Notes

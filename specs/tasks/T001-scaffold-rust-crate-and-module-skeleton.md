@@ -33,9 +33,12 @@ Create the Rust binary crate skeleton with the module layout and dependencies de
 
 1. Run `cargo init --name taskpad` (or hand-write `Cargo.toml` if starting from an existing
    directory) to produce the crate skeleton.
-2. Add dependencies to `Cargo.toml`: `clap` (derive feature), `serde` (derive feature), the
-   YAML crate chosen per `spec.main.md` §8 (check crates.io at implementation time for the
-   current maintained recommendation — do not use `serde_yaml`), and `thiserror`.
+2. Add dependencies to `Cargo.toml`: `clap` (derive feature), `serde` (derive feature),
+   `serde-saphyr` (the YAML crate chosen per `spec.main.md` §8 — do not use `serde_yaml`),
+   and `thiserror`; plus `tempfile` as a **dev-dependency** (T004's unit tests and
+   `spec.testing.md` §2 require `tempfile::tempdir()`, and `Cargo.toml` is in this task's
+   file list — see AGENTS.md Locked decision §1). No other crates: the §8 crate list is
+   closed (no `regex`, no `serde_json`).
 3. Create empty `mod` declarations in `main.rs` for `cli`, `models`, `storage`, `utils`,
    `validator`, `commands` so the crate compiles with `cargo build` even before any logic
    is ported.

@@ -31,7 +31,9 @@ port.
 ## Implementation Steps
 
 1. Copy `tests/helpers.mjs` and `tests/e2e/` from the C++ repo into this repo unchanged,
-   then apply exactly the two edits `spec.testing.md` §3 specifies.
+   then apply the edits `spec.testing.md` §3 specifies — three of them: `BINARY` path,
+   `ensureBuilt()`, **and** the repo-specific `BUILD_FLAG` rename (AGENTS.md Locked
+   decision §8 — the original `$TMPDIR` flag is shared with the C++ suite on this machine).
 2. Run `cargo build --release && node --test tests/e2e/*.mjs`.
 3. For every failure: diagnose whether it's (a) a genuine Rust-side output/behavior bug —
    fix the command implementation, not the test — or (b) a case where the C++ binary itself
@@ -41,6 +43,10 @@ port.
    yet in the C++ repo (per the gap list already called out in `spec.testing.md` §3), using
    the Coverage Requirements checklist from `spec.testing.md` §3.
 5. Run `cargo test` for the full unit-test suite alongside the E2E run.
+6. Once the suite is green: the seven task files T007–T013 each have a
+   `tests/e2e/*.mjs` acceptance box left unchecked under the pre-approved deferral
+   (AGENTS.md Locked decision §7). Check those boxes now, and append
+   `E2E verified at T015` to each of those task files' Notes sections.
 
 ## Acceptance Criteria
 
@@ -49,6 +55,8 @@ port.
 - [ ] Every command has at least one E2E test file
 - [ ] Any discovered C++-vs-spec discrepancy is documented in this task's Notes, not
       silently papered over
+- [ ] The deferred `tests/e2e` boxes in T007–T013 are checked and annotated
+      `E2E verified at T015` (AGENTS.md Locked decision §7, step 6 above)
 
 ## Notes
 

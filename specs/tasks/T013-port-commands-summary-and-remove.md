@@ -36,9 +36,11 @@ Port `Commands::summary` and `Commands::remove` from `commands.cpp` to
 ## Acceptance Criteria
 
 - [ ] `cargo build` succeeds
-- [ ] `tests/e2e/summary.mjs` (create if missing) and `tests/e2e/remove.mjs` (already exists
-      in the C++ repo) pass once wired in T014, including the interactive-prompt case via
-      `runInteractive`
+- [ ] `tests/e2e/summary.mjs` (author in *this* repo's `tests/e2e/`) and
+      `tests/e2e/remove.mjs` (copied from the C++ repo at T015) pass, including the
+      interactive-prompt case via `runInteractive` — **verification deferred to T015**
+      (AGENTS.md Locked decision §7). Leave this box unchecked at T013 with a Notes line
+      `E2E deferred to T015 (per AGENTS.md)`
 - [ ] `cargo clippy --all-targets -- -D warnings` succeeds
 
 ## Notes

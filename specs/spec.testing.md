@@ -89,18 +89,20 @@ and the Rust port should resolve that rather than copy the inconsistency forward
 
 ## 3. E2E Tests (node:test) — Reused Unmodified
 
-### What carries over as-is
+### What carries over
 
-`tests/helpers.mjs` and every file under `tests/e2e/` from the C++ repo. They spawn a
-compiled binary and assert on its stdout/stderr/exit code — they have no dependency on the
-implementation language.
+`tests/helpers.mjs` and every file under `tests/e2e/` from the C++ repo are **copied** into
+this repo (the C++ repo stays read-only — see AGENTS.md). They spawn a compiled binary and
+assert on its stdout/stderr/exit code — they have no dependency on the implementation
+language.
 
-### The one required change
+### The required changes
 
 `tests/helpers.mjs` currently does this:
 
 ```js
 const BINARY = path.join(ROOT, 'taskpad');
+const BUILD_FLAG = path.join(os.tmpdir(), '.taskpad-e2e-built');
 // ...
 function ensureBuilt() {
   if (fs.existsSync(BUILD_FLAG)) return;
@@ -109,10 +111,11 @@ function ensureBuilt() {
 }
 ```
 
-For the Rust binary, update just these two spots:
+For the Rust binary, update these **three** spots:
 
 ```js
 const BINARY = path.join(ROOT, 'target', 'release', 'taskpad');
+const BUILD_FLAG = path.join(os.tmpdir(), '.taskpad-rs-e2e-built');
 // ...
 function ensureBuilt() {
   if (fs.existsSync(BUILD_FLAG)) return;
@@ -120,6 +123,11 @@ function ensureBuilt() {
   fs.writeFileSync(BUILD_FLAG, '');
 }
 ```
+
+The `BUILD_FLAG` rename is not optional: the original `$TMPDIR/.taskpad-e2e-built` path is
+shared with the C++ repo's suite running on the same machine — if the C++ suite has ever
+run, the stale flag makes `ensureBuilt()` skip the build entirely and the Rust binary is
+never compiled.
 
 Nothing else in `helpers.mjs` or any `tests/e2e/*.mjs` file should need to change. If a
 change beyond this turns out to be necessary to make an E2E test pass, that's a signal the
@@ -132,8 +140,8 @@ One file per command area under `tests/e2e/`: `init.mjs`, `import.mjs`, `new.mjs
 `status.mjs`, `next.mjs`, `do.mjs`, `done.mjs`, `pause.mjs`, `deps.mjs`, `log.mjs`,
 `edit.mjs`, `summary.mjs`, `remove.mjs`. (The C++ repo currently ships `import.mjs`,
 `next.mjs`, `remove.mjs` under `tests/e2e/` — the remaining files are gaps that exist in the
-C++ repo too, per its own `spec.testing.md`; fill them in for whichever command they're
-missing for as that command's port task is completed, for both binaries' benefit.)
+C++ repo too, per its own `spec.testing.md`; fill them in **in this repo only** as each
+command's port task completes — never write into `../taskpad`.)
 
 ### Coverage Requirements
 

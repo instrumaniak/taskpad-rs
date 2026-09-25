@@ -31,19 +31,29 @@ a YAML node tree.
 ## Implementation Steps
 
 1. Port `read_task_dir`/`create_config`/`config_exists` for the `.taskpad` file — this is a
-   single `task-dir: <path>` YAML mapping, trivial with a one-field struct + serde.
+   single `task-dir: <path>` YAML mapping, trivial with a one-field struct + serde. The
+   written file must be exactly `# taskpad project config\ntask-dir: <path>\n` (comment
+   line from the C++ `YAML::Comment`, one trailing LF, no inline comment — see
+   `spec.main.md` §4 and AGENTS.md Locked decision §5).
 2. Port `read_status_file`/`write_status_file` for `status.yaml` — **this is the task where
    the biggest simplification over the C++ version happens**: replace the C++ version's
    manual `YAML::Node` field-by-field construction with `serde::Serialize`/`Deserialize` on
-   `StatusFile` directly (deserialize/serialize the whole struct in one call). Confirm the
-   output byte-format (key ordering, quoting of string values, `~` vs `[]` for empty
-   sequences) is close enough to the C++ output that existing `status.yaml` files parse
-   correctly and newly-written ones don't look alarmingly different to a human reading them
-   — exact byte-for-byte emitter output parity is not required (only round-trip
-   compatibility is), but gratuitous divergence should be avoided.
+   `StatusFile` directly (deserialize/serialize the whole struct in one call). The writer
+   must still match the C++ emitter's byte format per `spec.main.md` §4's writer facts and
+   AGENTS.md Locked decision §4: no comments, empty `depends` as `depends: ~` (never `[]`),
+   `phases`/`critical_path` omitted when empty, no trailing newline at EOF, fixed key
+   order (serde derive order gives this). The *reader* must tolerate everything §4's
+   reader-tolerance list covers (header comments, `[]`, flow style, quoted/plain names) —
+   `tests/helpers.mjs` fixtures and C++-written files use different styles, and both must
+   parse. Note the trap: `#[serde(default)] Vec<String>` does **not** cover an explicit
+   `depends: ~`/`null` — handle null explicitly.
 3. Preserve the exact error message strings from the C++ version for each failure path (see
-   `spec.main.md` §6 Edge Cases) — `read_task_dir` failing because `.taskpad` doesn't exist,
-   `read_status_file` failing because `status.yaml` doesn't exist or is malformed, etc.
+   `spec.main.md` §6 Edge Cases — note there are *two* malformed messages for each file:
+   structural `Invalid status.yaml format. Expected YAML mapping` and parser-exception
+   `Invalid status.yaml format: <what>`, plus the `.taskpad` pair) — `read_task_dir`
+   failing because `.taskpad` doesn't exist, `read_status_file` failing because
+   `status.yaml` doesn't exist or is malformed, etc. Write failures use
+   `Cannot write to <full file path>. Check permissions`.
 
 ## Constraints
 

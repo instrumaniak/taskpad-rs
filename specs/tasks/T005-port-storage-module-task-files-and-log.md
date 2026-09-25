@@ -29,10 +29,13 @@ to `src/storage.rs`.
 1. Port `task_file_path` — builds `<dir>/<id>-<kebab-name>.md`, falling back to `<id>.md` if
    the kebab-cased name is empty. Uses `utils::to_kebab_case`.
 2. Port `read_task_file`/`write_task_file` — `write_task_file` embeds the exact template
-   string from `spec.main.md` §4 (Goal/Depends On/Spec References/Files to Create-Modify/
-   Implementation Steps/Constraints/Acceptance Criteria/Notes sections, no `## Status:`
-   line). Copy the literal template text rather than reconstructing it from memory — string
-   drift here breaks `import` parsing of freshly-created task files.
+   string from `spec.main.md` §4 (Goal/Depends On/**Phase**/**Critical**/Spec References/
+   Files to Create-Modify/Implementation Steps/Constraints/Acceptance Criteria/Notes
+   sections, no `## Status:` line, single trailing newline). Copy the literal template
+   block from the spec — it now matches `storage.cpp`'s `writeTaskFile` byte-for-byte,
+   including the `## Phase:`/`## Critical:` placeholder sections — rather than
+   reconstructing it from memory: string drift here breaks `import` parsing of
+   freshly-created task files.
 3. Port `append_log` — finds or creates a `## Notes` section and inserts a
    `- [YYYY-MM-DD HH:MM] <message>` line, matching the C++ version's section-boundary
    logic (insert before the next `## ` heading, or at end of file if `## Notes` is the last
