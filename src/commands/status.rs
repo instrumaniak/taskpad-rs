@@ -71,7 +71,7 @@ pub fn run(tasks_dir: &str) -> Result<()> {
 
             print!("{} {}  {}", marker, id, task.name);
 
-            let padding = std::cmp::max(1, 20 - task.name.len());
+            let padding = std::cmp::max(1, 20usize.saturating_sub(task.name.len()));
             print!("{}", " ".repeat(padding));
 
             print!("{}", status_color(task.status));
@@ -128,6 +128,29 @@ mod tests {
             id: "T001".to_string(),
             name: "First Task".to_string(),
             status: Status::Done,
+            depends: vec![],
+            phase: 0,
+            critical: false,
+        };
+        sf.tasks.insert("T001".to_string(), t1);
+        storage::write_status_file(root, &sf).unwrap();
+
+        let result = run(root);
+        assert!(result.is_ok());
+    }
+
+    #[test]
+    fn status_handles_long_task_names_without_panic() {
+        let dir = tempdir().unwrap();
+        let root = dir.path().to_str().unwrap();
+        storage::create_config(root, "tasks").unwrap();
+        std::fs::create_dir_all(format!("{}/tasks", root)).ok();
+
+        let mut sf = StatusFile::default();
+        let t1 = Task {
+            id: "T001".to_string(),
+            name: "A task name that is definitely longer than twenty bytes".to_string(),
+            status: Status::Pending,
             depends: vec![],
             phase: 0,
             critical: false,
