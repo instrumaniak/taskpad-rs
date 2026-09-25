@@ -1,7 +1,7 @@
 tasks:
   T001:
     name: Scaffold Rust Crate And Module Skeleton
-    status: pending
+    status: done
     depends: ~
     phase: 0
     critical: true

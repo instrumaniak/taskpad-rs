@@ -55,10 +55,20 @@ Create the Rust binary crate skeleton with the module layout and dependencies de
 
 ## Acceptance Criteria
 
-- [ ] `cargo build` succeeds with zero warnings
-- [ ] `cargo clippy --all-targets -- -D warnings` succeeds
-- [ ] Directory structure matches `spec.main.md` §8's Crate Layout
+- [x] `cargo build` succeeds with zero warnings
+- [x] `cargo clippy --all-targets -- -D warnings` succeeds
+- [x] Directory structure matches `spec.main.md` §8's Crate Layout
 
 ## Notes
 
-(filled in during/after implementation)
+Scaffolded with `cargo init --name taskpad --vcs none` (existing git repo detected, no VCS
+files touched), then `Cargo.toml` hand-edited: `version = "1.0.0"` per spec §10 parity,
+`edition = "2024"`. Deps loosely pinned per constraint: `clap = "4"` (+derive),
+`serde = "1"` (+derive), `serde-saphyr = "1"`, `thiserror = "2"`; `tempfile = "3"` as
+dev-dependency only (Locked decision §1). No other crates. `.gitignore` written manually
+(`/target`) since `--vcs none` skips it. `Cargo.lock` committed (binary crate practice).
+Verified: `cargo build` (0 warnings), `cargo clippy --all-targets -- -D warnings` (clean),
+`cargo test` (0 tests, ok), tree matches §8 layout — `tests/` and `src/commands/*.rs`
+per-command files intentionally absent (land at T015 / T007–T013).
+
+- [2026-09-25 18:06] Scaffolded crate: Cargo.toml (clap/serde/serde-saphyr/thiserror + tempfile dev-dep, v1.0.0), empty modules, .gitignore; build/clippy/test clean
