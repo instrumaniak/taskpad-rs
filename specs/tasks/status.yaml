@@ -73,7 +73,7 @@ tasks:
     critical: false
   T011:
     name: Port Commands Deps And Log
-    status: pending
+    status: done
     depends:
       - T007
     phase: 3

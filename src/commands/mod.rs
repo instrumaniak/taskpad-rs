@@ -6,10 +6,12 @@
 //! `status`) and provides file-scope pure helpers extracted from `commands.cpp`
 //! that are shared across multiple commands.
 
+pub mod deps;
 pub mod do_cmd;
 pub mod done;
 pub mod import;
 pub mod init;
+pub mod log;
 pub mod new;
 pub mod next;
 pub mod pause;
