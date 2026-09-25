@@ -6,14 +6,16 @@
 //! `status`) and provides file-scope pure helpers extracted from `commands.cpp`
 //! that are shared across multiple commands.
 
+pub mod do_cmd;
 pub mod import;
 pub mod init;
 pub mod new;
+pub mod next;
 pub mod status;
 
 use crate::models::Status;
 use crate::models::Task;
-use crate::utils::{format_task_id, parse_task_id};
+use crate::utils::{format_task_id, parse_task_id, trim};
 use std::collections::BTreeMap;
 
 /// Convert a kebab-case string to Title Case, capitalizing the first letter
@@ -145,6 +147,81 @@ pub fn status_color(status: Status) -> &'static str {
     }
 }
 
+/// Extract the goal text from a T*.md content string.
+///
+/// Searches for "## Goal", starts after its newline, skips blank lines,
+/// then ends at the next "\n## " marker or EOF. Returns the trimmed text.
+/// Matching C++ `extractGoal`.
+pub fn extract_goal(content: &str) -> String {
+    let pos = match content.find("## Goal") {
+        Some(p) => p,
+        None => return String::new(),
+    };
+    let start = match content[pos..].find('\n') {
+        Some(p) => p + pos,
+        None => return String::new(),
+    };
+    let mut start = start;
+    while start + 1 < content.len() && content.as_bytes()[start + 1] == b'\n' {
+        start += 1;
+    }
+    let end = match content[start + 1..].find("\n## ") {
+        Some(p) => p + start + 1,
+        None => content.len(),
+    };
+    trim(&content[start..end])
+}
+
+/// Extract the first implementation step from a T*.md content string.
+///
+/// Searches for "## Implementation Steps", starts after its newline,
+/// skips blank lines, then scans for the first "- " list item or
+/// a numbered "N." item. Returns the trimmed text, or "" if none found.
+/// Matching C++ `getFirstStep`.
+pub fn get_first_step(content: &str) -> String {
+    let pos = match content.find("## Implementation Steps") {
+        Some(p) => p,
+        None => return String::new(),
+    };
+    let start = match content[pos..].find('\n') {
+        Some(p) => p + pos,
+        None => return String::new(),
+    };
+    let mut start = start;
+    while start + 1 < content.len() && content.as_bytes()[start + 1] == b'\n' {
+        start += 1;
+    }
+    let end = match content[start + 1..].find("\n## ") {
+        Some(p) => p + start + 1,
+        None => content.len(),
+    };
+    let section = &content[start..end];
+
+    let mut i = 0;
+    while i < section.len() {
+        let c = section.as_bytes()[i];
+        if c == b'-' && i + 1 < section.len() && section.as_bytes()[i + 1] == b' ' {
+            let line_end = section[i..]
+                .find('\n')
+                .map(|p| i + p)
+                .unwrap_or(section.len());
+            return trim(&section[i + 2..line_end]);
+        }
+        if c.is_ascii_digit() && i + 1 < section.len() && section.as_bytes()[i + 1] == b'.' {
+            let line_end = section[i..]
+                .find('\n')
+                .map(|p| i + p)
+                .unwrap_or(section.len());
+            let item = trim(&section[i + 2..line_end]);
+            if !item.is_empty() {
+                return item;
+            }
+        }
+        i += 1;
+    }
+    String::new()
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -214,5 +291,27 @@ mod tests {
         assert_eq!(count_status(&tasks, Status::Done), 2);
         assert_eq!(count_status(&tasks, Status::Pending), 1);
         assert_eq!(count_status(&tasks, Status::InProgress), 0);
+    }
+
+    #[test]
+    fn test_extract_goal() {
+        let content = "## Goal\n\nThis is the goal\n## Phase:";
+        assert_eq!(extract_goal(content), "This is the goal");
+        let content = "## Goal\n\n(Describe the goal)\n## Depends On\n\n(None)\n";
+        assert_eq!(extract_goal(content), "(Describe the goal)");
+        assert_eq!(extract_goal("no goal here"), "");
+        let content = "## Goal\n\nGoal text\n\n## Implementation Steps\n\n1. Step one\n";
+        assert_eq!(extract_goal(content), "Goal text");
+    }
+
+    #[test]
+    fn test_get_first_step() {
+        let content = "## Implementation Steps\n\n1. First step here\n2. Second step\n";
+        assert_eq!(get_first_step(content), "First step here");
+        let content = "## Implementation Steps\n\n- First bullet step\n";
+        assert_eq!(get_first_step(content), "First bullet step");
+        assert_eq!(get_first_step("no steps"), "");
+        let content = "## Implementation Steps\n\n\n- Blanked step\n";
+        assert_eq!(get_first_step(content), "Blanked step");
     }
 }
