@@ -65,3 +65,5 @@ signature shape, error-to-stderr convention) the rest of `commands/*.rs` follows
 ## Notes
 
 (filled in during/after implementation)
+
+- [2026-09-25 18:50] Ported commands init+import

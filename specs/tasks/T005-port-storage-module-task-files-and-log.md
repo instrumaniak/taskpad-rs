@@ -52,3 +52,5 @@ to `src/storage.rs`.
 ## Notes
 
 (filled in during/after implementation)
+
+- [2026-09-25 18:47] Ported task files + log append

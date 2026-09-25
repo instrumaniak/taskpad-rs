@@ -29,7 +29,7 @@ tasks:
     critical: true
   T005:
     name: Port Storage Module Task Files And Log
-    status: pending
+    status: done
     depends:
       - T004
     phase: 2
@@ -43,7 +43,7 @@ tasks:
     critical: true
   T007:
     name: Port Commands Init And Import
-    status: pending
+    status: done
     depends:
       - T004
       - T005
