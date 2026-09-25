@@ -57,3 +57,5 @@ helpers (`extract_phase`, `extract_critical`, `extract_section_list_items`).
 ## Notes
 
 (filled in during/after implementation)
+
+- [2026-09-25 18:36] Port Utils Module
