@@ -106,6 +106,7 @@ in this table is a stop-and-report event (see "When stuck").
 | 15 | Subcommand count | T014 said "twelve" | **thirteen**: init, import, new, status, next, do, done, pause, deps, log, edit, summary, remove |
 | 16 | `pause` scope | §5: in_progress → pending | any non-pending → pending, **including done** — only already-pending is rejected (`commands.cpp:760`) |
 | 17 | `helpers.mjs` build | `ensureBuilt()` runs `make`, shared build flag | must run `cargo build --release` with a repo-specific build flag (Locked decision §8) |
+| 18 | Wrong-shaped `tasks` node (e.g. `tasks: 5`) | locked reader contract (§4) doesn't cover it; Rust reader errors, exit 1 | C++ tolerates it (treated as empty project, exit 0). **Accepted deviation** — human ruling 2026-09-25: keep the strict Rust error (exit 1); do not "fix" the reader toward C++ here |
 
 Also corrected while editing: `spec.main.md` §6 gained missing rows (malformed `.taskpad`
 dual messages, `already pending`), §8 now names `serde-saphyr` + `tempfile`, and §4's
