@@ -53,3 +53,5 @@ Port `Commands::next` and `Commands::do_` from `commands.cpp` to `src/commands/n
 ## Notes
 
 (filled in during/after implementation)
+
+- [2026-09-25 18:59] Ported commands next+do

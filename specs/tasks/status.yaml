@@ -59,7 +59,7 @@ tasks:
     critical: false
   T009:
     name: Port Commands Next And Do
-    status: pending
+    status: done
     depends:
       - T007
     phase: 3
