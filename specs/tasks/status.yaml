@@ -52,7 +52,7 @@ tasks:
     critical: true
   T008:
     name: Port Commands New And Status
-    status: pending
+    status: done
     depends:
       - T007
     phase: 3

@@ -2,15 +2,18 @@
 
 //! Shared command helpers for the taskpad CLI.
 //!
-//! This module re-exports the subcommand modules (`init`, `import`) and
-//! provides file-scope pure helpers extracted from `commands.cpp` that are
-//! shared across multiple commands.
+//! This module re-exports the subcommand modules (`init`, `import`, `new`,
+//! `status`) and provides file-scope pure helpers extracted from `commands.cpp`
+//! that are shared across multiple commands.
 
 pub mod import;
 pub mod init;
+pub mod new;
+pub mod status;
 
 use crate::models::Status;
 use crate::models::Task;
+use crate::utils::{format_task_id, parse_task_id};
 use std::collections::BTreeMap;
 
 /// Convert a kebab-case string to Title Case, capitalizing the first letter
@@ -102,6 +105,44 @@ pub fn count_status(tasks: &BTreeMap<String, Task>, status: Status) -> i32 {
         }
     }
     count
+}
+
+/// Find the next available task ID by taking the max parsed task ID
+/// from `tasks` keys and adding 1. Returns `"T001"` for an empty map.
+/// Matching C++ `findNextTaskId`.
+pub fn find_next_task_id(tasks: &BTreeMap<String, Task>) -> String {
+    let mut max_id = 0;
+    for id in tasks.keys() {
+        let num = parse_task_id(id);
+        if num > max_id {
+            max_id = num;
+        }
+    }
+    format_task_id(max_id + 1)
+}
+
+/// Return `true` if every dependency in `task.depends` exists in
+/// `tasks` and has status [`Status::Done`].
+/// Matching C++ `allDepsDone`.
+pub fn all_deps_done(task: &Task, tasks: &BTreeMap<String, Task>) -> bool {
+    for dep in &task.depends {
+        match tasks.get(dep) {
+            Some(t) if t.status == Status::Done => continue,
+            _ => return false,
+        }
+    }
+    true
+}
+
+/// Return the bracketed status string for terminal display.
+/// Done→`"[done]"`, InProgress→`"[in_progress]"`, Pending→`"[pending]"`.
+/// Matching C++ `statusColor`.
+pub fn status_color(status: Status) -> &'static str {
+    match status {
+        Status::Done => "[done]",
+        Status::InProgress => "[in_progress]",
+        Status::Pending => "[pending]",
+    }
 }
 
 #[cfg(test)]

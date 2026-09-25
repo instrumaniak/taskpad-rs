@@ -49,3 +49,5 @@ Port `Commands::new_` and `Commands::status` from `commands.cpp` to
 ## Notes
 
 (filled in during/after implementation)
+
+- [2026-09-25 18:55] Ported commands new+status
