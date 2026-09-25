@@ -88,7 +88,7 @@ tasks:
     critical: false
   T013:
     name: Port Commands Summary And Remove
-    status: pending
+    status: done
     depends:
       - T007
     phase: 3

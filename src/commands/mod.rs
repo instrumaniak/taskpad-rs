@@ -16,7 +16,9 @@ pub mod log;
 pub mod new;
 pub mod next;
 pub mod pause;
+pub mod remove;
 pub mod status;
+pub mod summary;
 
 use crate::models::Status;
 use crate::models::Task;
