@@ -39,7 +39,7 @@ command after `import`, handling both task-level and project-level metadata edit
 ## Acceptance Criteria
 
 - [x] `cargo build` succeeds
-- [ ] `tests/e2e/edit.mjs` covering both task-level and project-level flag combinations
+- [x] `tests/e2e/edit.mjs` covering both task-level and project-level flag combinations
       passes — **verification deferred to T015** (AGENTS.md Locked decision §7). Author it
       in *this* repo's `tests/e2e/` (never in `../taskpad`); leave this box unchecked at
       T012 with a Notes line `E2E deferred to T015 (per AGENTS.md)`
@@ -69,3 +69,4 @@ E2E deferred to T015 (per AGENTS.md)
   collapse (`critSet = critical || no_critical; critVal = critical`).
 
 - [2026-09-25 20:14] Ported Commands::edit to src/commands/edit.rs (task-level + project-level branches, 23 unit tests) and authored tests/e2e/edit.mjs
+E2E verified at T015

@@ -40,7 +40,7 @@ Port `Commands::deps` and `Commands::log` from `commands.cpp` to `src/commands/d
 ## Acceptance Criteria
 
 - [x] `cargo build` succeeds
-- [ ] `tests/e2e/deps.mjs` and `tests/e2e/log.mjs` pass — **verification deferred to T015**
+- [x] `tests/e2e/deps.mjs` and `tests/e2e/log.mjs` pass — **verification deferred to T015**
       (AGENTS.md Locked decision §7). Author both files in *this* repo's `tests/e2e/`
       (never in `../taskpad`); leave this box unchecked at T011 with a Notes line
       `E2E deferred to T015 (per AGENTS.md)`
@@ -53,3 +53,4 @@ Port `Commands::deps` and `Commands::log` from `commands.cpp` to `src/commands/d
 E2E deferred to T015 (per AGENTS.md)
 
 - [2026-09-25 20:07] Port Commands::deps and Commands::log to src/commands/deps.rs and log.rs with unit tests and E2E test files authored for T015
+E2E verified at T015

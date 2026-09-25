@@ -141,12 +141,21 @@ pub fn read_status_file(task_dir: &str) -> Result<StatusFile> {
 
 /// Write the [`StatusFile`] to `status.yaml` in `task_dir`.
 ///
-/// Serializes via `serde_saphyr::to_string` (which appends a trailing `\n`),
-/// then strips that newline so the output has no trailing newline at EOF,
-/// matching the C++ `YAML::Dump` emitter byte-for-byte.
+/// Serializes via `serde_saphyr::to_string_with_options` (which appends a
+/// trailing `\n`), then strips that newline so the output has no trailing
+/// newline at EOF, matching the C++ `YAML::Dump` emitter byte-for-byte.
+///
+/// `compact_list_indent: false` is required for parity: yaml-cpp indents block
+/// sequence items one step deeper than their parent mapping key
+/// (`depends:` → `      - T001`, `critical_path:` → `  - T001`), whereas
+/// serde-saphyr's default compact style would put them at the key's indent.
 pub fn write_status_file(task_dir: &str, sf: &StatusFile) -> Result<()> {
     let path = normalize_path(task_dir) + "/status.yaml";
-    let mut yaml = serde_saphyr::to_string(sf).map_err(|e| TaskpadError::Message(e.to_string()))?;
+    let opts = serde_saphyr::ser_options! {
+        compact_list_indent: false,
+    };
+    let mut yaml = serde_saphyr::to_string_with_options(sf, opts)
+        .map_err(|e| TaskpadError::Message(e.to_string()))?;
     // Strip the trailing \n that serde_saphyr::to_string appends,
     // so the output has no trailing newline at EOF.
     yaml = yaml.trim_end_matches('\n').to_string();

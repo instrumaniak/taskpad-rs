@@ -36,7 +36,7 @@ Port `Commands::summary` and `Commands::remove` from `commands.cpp` to
 ## Acceptance Criteria
 
 - [x] `cargo build` succeeds
-- [ ] `tests/e2e/summary.mjs` (author in *this* repo's `tests/e2e/`) and
+- [x] `tests/e2e/summary.mjs` (author in *this* repo's `tests/e2e/`) and
       `tests/e2e/remove.mjs` (copied from the C++ repo at T015) pass, including the
       interactive-prompt case via `runInteractive` — **verification deferred to T015**
       (AGENTS.md Locked decision §7). Leave this box unchecked at T013 with a Notes line
@@ -48,3 +48,4 @@ Port `Commands::summary` and `Commands::remove` from `commands.cpp` to
 E2E deferred to T015 (per AGENTS.md)
 
 - [2026-09-25 20:15] Ported summary.rs (totals/pct, phase breakdown, critical path) and remove.rs (validation, dependent warning, y/N prompt, --all/--force) with unit tests and authored tests/e2e/summary.mjs
+E2E verified at T015

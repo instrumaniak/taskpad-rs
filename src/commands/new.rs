@@ -31,7 +31,7 @@ pub fn run(
     for (id, task) in &sf.tasks {
         if task.name == name {
             eprintln!(
-                "warning: Task with similar name exists: {}-{}",
+                "warning: Task with similar name exists: {}-{}.md",
                 id,
                 utils::to_kebab_case(name)
             );

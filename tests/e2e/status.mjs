@@ -41,7 +41,13 @@ tasks:
 
   it('marks next task with arrow', () => {
     const r = p.run('status');
-    assert.match(r.stdout, /\u2192 T003  Third Task/);
+    assert.match(r.stdout, /→ T003  Third Task/);
+    assert.equal(r.status, 0);
+  });
+
+  it('marks the next task with the dependencies-met note', () => {
+    const r = p.run('status');
+    assert.match(r.stdout, /← next \(dependencies met\)/);
     assert.equal(r.status, 0);
   });
 });
@@ -104,6 +110,10 @@ tasks:
     depends: []
     phase: 1
     critical: true
+
+phases:
+  0: Foundation
+  1: Build
 `,
     });
   });
@@ -118,8 +128,8 @@ tasks:
 
   it('prints phase name when configured', () => {
     const r = p.run('status');
-    const yaml = p.readFile('tasks/status.yaml');
-    assert.ok(yaml.includes('Phase'));
+    assert.match(r.stdout, /Phase 0: Foundation/);
+    assert.match(r.stdout, /Phase 1: Build/);
     assert.equal(r.status, 0);
   });
 });

@@ -40,7 +40,7 @@ Port `Commands::new_` and `Commands::status` from `commands.cpp` to
 ## Acceptance Criteria
 
 - [ ] `cargo build` succeeds
-- [ ] `tests/e2e/new.mjs` and `tests/e2e/status.mjs` pass — **verification deferred to
+- [x] `tests/e2e/new.mjs` and `tests/e2e/status.mjs` pass — **verification deferred to
       T015** (AGENTS.md Locked decision §7). Author both files in *this* repo's
       `tests/e2e/` (never in `../taskpad`); leave this box unchecked at T008 with a Notes
       line `E2E deferred to T015 (per AGENTS.md)`
@@ -51,3 +51,4 @@ Port `Commands::new_` and `Commands::status` from `commands.cpp` to
 (filled in during/after implementation)
 
 - [2026-09-25 18:55] Ported commands new+status
+E2E verified at T015

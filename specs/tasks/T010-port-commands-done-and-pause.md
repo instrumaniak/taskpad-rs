@@ -36,7 +36,7 @@ and `src/commands/pause.rs`.
 ## Acceptance Criteria
 
 - [x] `cargo build` succeeds
-- [ ] `tests/e2e/done.mjs` and `tests/e2e/pause.mjs` pass — **verification deferred to
+- [x] `tests/e2e/done.mjs` and `tests/e2e/pause.mjs` pass — **verification deferred to
       T015** (AGENTS.md Locked decision §7). Author both files in *this* repo's
       `tests/e2e/` (never in `../taskpad`); leave this box unchecked at T010 with a Notes
       line `E2E deferred to T015 (per AGENTS.md)`
@@ -49,3 +49,4 @@ and `src/commands/pause.rs`.
 - E2E deferred to T015 (per AGENTS.md)
 
 - [2026-09-25 19:34] Ported commands done+pause
+E2E verified at T015

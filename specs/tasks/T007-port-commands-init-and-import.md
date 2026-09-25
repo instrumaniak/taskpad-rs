@@ -54,7 +54,7 @@ signature shape, error-to-stderr convention) the rest of `commands/*.rs` follows
 - [ ] `cargo build` succeeds
 - [ ] Unit tests cover the pure parts (e.g. dependency-extraction from a Notes-section-style
       string) where practical without a real filesystem
-- [ ] `tests/e2e/init.mjs` and `tests/e2e/import.mjs` pass against the release build —
+- [x] `tests/e2e/init.mjs` and `tests/e2e/import.mjs` pass against the release build —
       **verification deferred to T015** (AGENTS.md Locked decision §7: the suite can't run
       before T014 wiring + T015 `helpers.mjs` rewire). As part of this task, author
       `init.mjs` in *this* repo's `tests/e2e/` if missing; `import.mjs` is copied from the
@@ -67,3 +67,4 @@ signature shape, error-to-stderr convention) the rest of `commands/*.rs` follows
 (filled in during/after implementation)
 
 - [2026-09-25 18:50] Ported commands init+import
+E2E verified at T015

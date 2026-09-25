@@ -1,5 +1,6 @@
 import { describe, it, before, after } from 'node:test';
 import assert from 'node:assert/strict';
+import fs from 'node:fs';
 import { createProject } from '../helpers.mjs';
 
 const SEPARATOR = '\u2500'.repeat(13);
@@ -198,6 +199,57 @@ describe('taskpad summary — malformed status.yaml', () => {
     const r = p.run('summary');
     assert.match(r.stderr, /Invalid status\.yaml format\. Expected YAML mapping/);
     assert.equal(r.stdout, '');
+    assert.equal(r.status, 1);
+  });
+});
+
+describe('taskpad summary — status.yaml with a YAML syntax error', () => {
+  let p;
+
+  before(() => {
+    p = createProject({
+      statusYaml: 'foo: [unclosed\n',
+    });
+  });
+  after(() => p.destroy());
+
+  it('returns the parser status.yaml error', () => {
+    const r = p.run('summary');
+    // The `<parser message>` tail is parser-specific (yaml-cpp vs
+    // serde-saphyr wording differs); the stable prefix must match.
+    assert.match(r.stderr, /Invalid status\.yaml format: \S/);
+    assert.equal(r.stdout, '');
+    assert.equal(r.status, 1);
+  });
+});
+
+describe('taskpad summary — .taskpad problems', () => {
+  let p;
+
+  before(() => {
+    p = createProject({ empty: true });
+  });
+  after(() => p.destroy());
+
+  it('malformed .taskpad falls back to specs/tasks (missing status.yaml)', () => {
+    // `resolve_task_dir` swallows the config error and falls back to
+    // specs/tasks — matching the C++ `resolveTaskDir` (spec.main.md §6).
+    fs.writeFileSync(p.resolve('.taskpad'), '[1, 2]\n');
+    const r = p.run('summary');
+    assert.match(
+      r.stderr,
+      /No status\.yaml found\. Run 'taskpad import' or 'taskpad new' first/
+    );
+    assert.equal(r.status, 1);
+  });
+
+  it('invalid task-dir path fails with missing status.yaml', () => {
+    fs.writeFileSync(p.resolve('.taskpad'), 'task-dir: does-not-exist\n');
+    const r = p.run('summary');
+    assert.match(
+      r.stderr,
+      /No status\.yaml found\. Run 'taskpad import' or 'taskpad new' first/
+    );
     assert.equal(r.status, 1);
   });
 });
