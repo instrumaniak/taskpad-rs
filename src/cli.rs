@@ -17,22 +17,22 @@ use clap::{Parser, Subcommand};
     arg_required_else_help = true,
     disable_help_subcommand = true
 )]
-pub struct Cli {
+pub(crate) struct Cli {
     #[arg(
         long,
         global = true,
         value_name = "TEXT",
         help = "Override task directory"
     )]
-    pub tasks_dir: Option<String>,
+    pub(crate) tasks_dir: Option<String>,
 
     #[command(subcommand)]
-    pub command: Command,
+    pub(crate) command: Command,
 }
 
 /// The thirteen subcommands, in the same order as `cli.cpp` registers them.
 #[derive(Debug, Subcommand)]
-pub enum Command {
+pub(crate) enum Command {
     #[command(about = "Initialize task tracking")]
     Init,
 

@@ -2,8 +2,19 @@
 name = "taskpad"
 version = "1.0.0"
 edition = "2024"
+rust-version = "1.89"
 description = "Task tracking CLI with phase-aware dependency support (Rust port of taskpad)"
 repository = "https://github.com/instrumaniak/taskpad-rs"
+readme = "README.md"
+keywords = ["taskpad", "task-management", "task-tracker", "project-management", "cli"]
+categories = ["command-line-utilities", "development-tools"]
+# `license` is intentionally absent: the upstream C++ repository
+# (github.com/instrumaniak/taskpad) ships no LICENSE file, so there is no
+# license to mirror. Set one before publishing to crates.io.
+
+[[bin]]
+name = "taskpad"
+path = "src/main.rs"
 
 [dependencies]
 clap = { version = "4", features = ["derive"] }
@@ -13,3 +24,14 @@ thiserror = "2"
 
 [dev-dependencies]
 tempfile = "3"
+
+[lints.rust]
+unsafe_code = "forbid"
+
+[lints.clippy]
+# Kept off in test builds by the single crate-root
+# `#![cfg_attr(test, allow(...))]` in src/main.rs, which covers every
+# `#[cfg(test)]` module. Both are `deny` (not `forbid`) precisely so that
+# in-source `allow` can override them.
+unwrap_used = "deny"
+expect_used = "deny"

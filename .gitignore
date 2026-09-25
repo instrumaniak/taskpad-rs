@@ -1,1 +1,11 @@
 /target
+
+# Patch/merge leftovers
+*.orig
+*.rej
+
+# Atomic-write temp files stranded by an interrupted taskpad run. They are
+# created beside their target, so one can end up in a taskpad-managed
+# directory such as specs/tasks/ — and it is inert: not a `T*.md` file, not
+# `status.yaml`, not `.taskpad`.
+.taskpad-tmp-*

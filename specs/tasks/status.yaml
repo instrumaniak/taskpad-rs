@@ -119,6 +119,36 @@ tasks:
       - T015
     phase: 5
     critical: false
+  T017:
+    name: Fix P0 correctness and rule compliance
+    status: done
+    depends: ~
+    phase: 6
+    critical: false
+  T018:
+    name: Deduplicate command boilerplate and error strings
+    status: done
+    depends: ~
+    phase: 6
+    critical: false
+  T019:
+    name: Fix architecture layering and testability
+    status: done
+    depends: ~
+    phase: 6
+    critical: false
+  T020:
+    name: Harden robustness and security
+    status: done
+    depends: ~
+    phase: 6
+    critical: false
+  T021:
+    name: Packaging idioms and docs polish
+    status: done
+    depends: ~
+    phase: 6
+    critical: false
 phases:
   0: Scaffolding
   1: Foundation
@@ -126,6 +156,7 @@ phases:
   3: Commands
   4: CLI Integration
   5: Testing And Release
+  6: Post-Port Review And Hardening
 critical_path:
   - T001
   - T002
