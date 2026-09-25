@@ -9,6 +9,7 @@
 pub mod deps;
 pub mod do_cmd;
 pub mod done;
+pub mod edit;
 pub mod import;
 pub mod init;
 pub mod log;

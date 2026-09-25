@@ -80,7 +80,7 @@ tasks:
     critical: false
   T012:
     name: Port Commands Edit
-    status: pending
+    status: done
     depends:
       - T007
       - T006
