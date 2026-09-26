@@ -31,8 +31,6 @@ Global flag: `--tasks-dir <TEXT>` overrides the task directory (otherwise `task-
 - **Rust (MSRV 1.89)** on stable. The floor is set by `serde-saphyr 1.3`, which declares
   `rust-version = "1.89"`; edition 2024 alone only needs 1.85. There are no system
   packages and no C++ toolchain — everything comes from crates.io.
-- **Node.js 18+** — *only* to run the E2E suite, which is `node --test` + `node:test`
-  (developed and verified on Node 22). The `taskpad` binary itself has no Node dependency.
 
 ## Building from Source
 
@@ -45,9 +43,8 @@ cd taskpad-rs
 cargo build --release
 # Binary at target/release/taskpad
 
-# [optional] Run all tests (unit + E2E)
+# [optional] Run all tests (both tiers: unit + E2E)
 cargo test
-node --test tests/e2e/*.mjs
 
 # Install (to ~/.cargo/bin — ensure that's on PATH)
 cargo install --path .
@@ -70,18 +67,10 @@ cargo test
 cargo fmt --check
 ```
 
-Then the E2E suite (needs Node.js 18+; the Rust port's E2E tests are `node --test` files, not
-C++ binaries — 80 suites / 123 assertions across the 13 subcommands):
-
-```bash
-cargo build --release   # must come first — see the note below
-node --test tests/e2e/*.mjs
-```
-
-> **Build the release binary before the E2E run.** `tests/helpers.mjs` writes a build-flag file
-> to the OS temp dir (`.taskpad-rs-e2e-built`) and skips `cargo build --release` whenever that
-> file exists. If it is stale, the suite silently tests the *previous* binary. Delete
-> `$(node -p "require('os').tmpdir()")/.taskpad-rs-e2e-built` to force a rebuild.
+`cargo test` covers both tiers: the in-crate unit tests and the `tests/e2e/` integration
+tests, which drive the binary Cargo just built — there is no separate build step. Run the E2E
+tier alone with `cargo test --test e2e`, or filter it to one command area with
+`cargo test --test e2e edit`.
 
 `Cargo.toml` denies `clippy::unwrap_used`/`clippy::expect_used` and forbids `unsafe_code` crate-wide; the single
 `#![cfg_attr(test, allow(...))]` at the top of `src/main.rs` is what keeps the `#[cfg(test)]`

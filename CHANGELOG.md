@@ -21,7 +21,8 @@ wording, same exit codes.
 - A tolerant `status.yaml` reader that also accepts header comments, `depends: []`, flow-style
   `depends: [T001]`, quoted or plain `name`, and omitted optional fields.
 - `T*.md` template and `.taskpad` config bytes matching the C++ emitters exactly.
-- Unit tests in-crate and a `node --test` E2E suite mirroring the C++ E2E tests.
+- Unit tests in-crate and a Rust integration-test E2E tier under `tests/e2e/`,
+  transcribed assertion-for-assertion from the C++ repo's `node:test` suite.
 - `Cargo.toml` packaging metadata (`rust-version` 1.89, `readme`, `keywords`, `categories`,
   explicit `[[bin]]`) and crate-wide lints: `unsafe_code = "forbid"`,
   `clippy::unwrap_used`/`clippy::expect_used` denied outside `#[cfg(test)]`.
