@@ -14,7 +14,6 @@ use std::path::Path;
 /// `main.rs`); it receives the prompt text and returns `true` to proceed.
 /// Keeping stdin out of here makes the command testable without a tty —
 /// an empty line, EOF, or read error must decline (see `confirmed`).
-/// Matching C++ `Commands::remove`.
 pub(crate) fn run(
     tasks_dir: &str,
     task_id: &str,

@@ -12,8 +12,7 @@ use crate::validator;
 /// Scans the task directory for `T*.md` files, parses their headers,
 /// validates dependencies, and writes `status.yaml`. Warnings are
 /// printed to stderr but the function still returns Ok(()) and writes
-/// the file (matching C++ `Commands::import_`).
-/// Matching C++ `Commands::import_`.
+/// the file.
 pub(crate) fn run(tasks_dir: &str, force: bool) -> Result<()> {
     let dir = storage::resolve_task_dir(tasks_dir);
 
@@ -189,7 +188,6 @@ fn is_missing_status_file(err: &TaskpadError) -> bool {
 }
 
 /// Check whether a filename matches the T*.md task-file pattern.
-/// Matching C++ `filename[0]=='T' && isdigit(filename[1..4]) && filename[4]=='-' && ends_with(".md")`.
 fn is_task_file(filename: &str) -> bool {
     let bytes = filename.as_bytes();
     bytes.len() > 4

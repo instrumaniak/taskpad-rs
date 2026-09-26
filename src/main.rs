@@ -28,7 +28,7 @@ fn main() {
         cli::Command::Done { id } => commands::done::run(&tasks_dir, &id),
         cli::Command::Pause { id } => commands::pause::run(&tasks_dir, &id),
         cli::Command::Deps { id } => commands::deps::run(&tasks_dir, &id),
-        cli::Command::Log { id, message } => commands::log::run(&tasks_dir, &id, &message),
+        cli::Command::Log { id, message } => commands::log_cmd::run(&tasks_dir, &id, &message),
         cli::Command::Edit {
             id,
             status,

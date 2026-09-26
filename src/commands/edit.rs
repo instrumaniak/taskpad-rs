@@ -51,8 +51,6 @@ pub(crate) struct EditArgs {
 /// tri-state; the CLI collapses them the same way `cli.cpp` does:
 /// critical is set when either flag is given, and its value is `true`
 /// only when `--critical` was the one supplied.
-///
-/// Matching C++ `Commands::edit`.
 pub(crate) fn run(tasks_dir: &str, task_id: &str, args: EditArgs) -> Result<()> {
     let status = args.status.as_deref().unwrap_or_default();
     let depends: &[String] = args.depends.as_deref().unwrap_or_default();

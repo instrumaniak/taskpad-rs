@@ -1,4 +1,3 @@
-//! Rust port of `validator.h` / `validator.cpp` from the C++ taskpad codebase.
 //!
 //! Provides task ID validation, status validation, and dependency graph
 //! validation (existence checks and circular-dependency detection).
@@ -39,25 +38,6 @@ pub(crate) fn is_valid_task_id(id: &str) -> bool {
 /// Valid statuses are `"pending"`, `"in_progress"`, and `"done"`.
 pub(crate) fn is_valid_status(status: &str) -> bool {
     status == "pending" || status == "in_progress" || status == "done"
-}
-
-// ---------------------------------------------------------------------------
-// validate_task_exists
-// ---------------------------------------------------------------------------
-
-/// Check that a task with the given ID exists in `tasks`, matching
-/// C++ `validateTaskExists`.
-///
-/// Commands surface the same string via [`TaskpadError::task_not_found`];
-/// this helper itself is only exercised by unit tests, hence the scoped allow.
-///
-/// Returns an error if the task is not found.
-#[allow(dead_code)]
-pub(crate) fn validate_task_exists(id: &str, tasks: &BTreeMap<String, Task>) -> Result<()> {
-    if tasks.get(id).is_none() {
-        return Err(TaskpadError::Message(format!("Task {id} not found")));
-    }
-    Ok(())
 }
 
 // ---------------------------------------------------------------------------
@@ -175,17 +155,6 @@ mod tests {
         assert!(!is_valid_status(""));
         assert!(!is_valid_status("unknown"));
         assert!(!is_valid_status("PENDING"));
-    }
-
-    #[test]
-    fn test_validate_task_exists() {
-        let mut tasks = BTreeMap::new();
-        tasks.insert("T001".to_string(), make_task("T001", vec![]));
-        tasks.insert("T002".to_string(), make_task("T002", vec![]));
-        assert!(validate_task_exists("T001", &tasks).is_ok());
-        assert!(validate_task_exists("T002", &tasks).is_ok());
-        assert!(validate_task_exists("T003", &tasks).is_err());
-        assert!(validate_task_exists("", &tasks).is_err());
     }
 
     #[test]

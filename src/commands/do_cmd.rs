@@ -12,11 +12,10 @@ use crate::storage;
 /// Validates the task ID, checks the task exists and isn't already
 /// in_progress or done, verifies dependencies (unless --force),
 /// then sets status to InProgress and writes status.yaml.
-/// Matching C++ `Commands::do_`.
 ///
 /// The task name is printed verbatim (`Started T001 — <name>`), so ANSI
 /// escape sequences or other control characters in `name` reach stdout
-/// untouched — C++ parity, see the note in [`crate::commands`].
+/// untouched — see the note in [`crate::commands`].
 pub(crate) fn run(tasks_dir: &str, task_id: &str, force: bool) -> Result<()> {
     require_task_id(task_id)?;
 
@@ -48,8 +47,8 @@ pub(crate) fn run(tasks_dir: &str, task_id: &str, force: bool) -> Result<()> {
         // `unmet_deps` can only report IDs it can look up. So a task whose
         // every dependency is absent yields an empty list here and the
         // message reads `Unmet dependencies: . Use --force to proceed`.
-        // C++ parity — commands.cpp:645-656 walks the same two loops and
-        // produces the same empty-list message; left as is.
+        // `commands.cpp:645-656` walks the same two loops and produces the
+        // same empty-list message; left as is.
         return Err(TaskpadError::Message(format!(
             "Unmet dependencies: {}. Use --force to proceed",
             blockers.join(", ")

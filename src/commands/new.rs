@@ -13,7 +13,6 @@ use crate::validator;
 /// Validates the name, checks for duplicate names, validates
 /// dependencies, detects circular dependencies, writes the T*.md
 /// template, and updates `status.yaml`.
-/// Matching C++ `Commands::new_`.
 pub(crate) fn run(
     tasks_dir: &str,
     name: &str,

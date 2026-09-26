@@ -149,6 +149,19 @@ tasks:
     depends: ~
     phase: 6
     critical: false
+  T022:
+    name: Code Cleanup
+    status: done
+    depends: ~
+    phase: 6
+    critical: false
+  T023:
+    name: E2e Test Refactor
+    status: pending
+    depends:
+      - T022
+    phase: 6
+    critical: false
 phases:
   0: Scaffolding
   1: Foundation

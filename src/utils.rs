@@ -1,4 +1,3 @@
-//! Rust port of `utils.h` / `utils.cpp` from the C++ taskpad codebase.
 //!
 //! Provides string manipulation, task ID formatting, path normalization,
 //! timestamp generation, and T*.md section extraction utilities.

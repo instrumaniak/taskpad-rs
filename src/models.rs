@@ -66,20 +66,20 @@ pub(crate) fn status_to_string(s: Status) -> &'static str {
 
 /// C++ `stringToStatus(const std::string& s)` — unknown/empty → `Pending`.
 ///
-/// # Lossy on rewrite (C++ parity)
+/// # Lossy on rewrite
 ///
 /// The mapping is deliberately forgiving: any unrecognised value (a typo, a
 /// status from a newer version, a non-string YAML scalar coerced by the
 /// deserializer) reads back as [`Status::Pending`] rather than failing the
-/// whole file — matching C++ `storage.cpp:118`, where a hand-edited
+/// whole file — matching `storage.cpp:118`, where a hand-edited
 /// `status.yaml` must stay readable.
 ///
 /// The cost is that the leniency is **not** reversible. The unknown text only
 /// ever lives in the file; the in-memory task is already `Pending`, so the
 /// next `write_status_file` persists `status: pending` and the original value
 /// is gone. Reading a project with a typo and then writing it back silently
-/// normalises that field. Kept as C++ parity rather than rejected, because
-/// erroring instead would break every project that has a stale status value.
+/// normalises that field. Kept as-is rather than rejected, because erroring
+/// instead would break every project that has a stale status value.
 pub(crate) fn string_to_status(s: &str) -> Status {
     match s {
         "in_progress" => Status::InProgress,

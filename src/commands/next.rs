@@ -8,7 +8,6 @@ use crate::storage;
 ///
 /// Candidates are pending tasks whose dependencies are all done,
 /// sorted by (critical desc, phase asc, id asc).
-/// Matching C++ `Commands::next`.
 pub(crate) fn run(tasks_dir: &str) -> Result<()> {
     let (dir, sf) = load_status(tasks_dir)?;
 

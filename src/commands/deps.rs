@@ -8,7 +8,6 @@ use crate::models::status_to_string;
 /// Prints `TXXX depends on:` with a `✓`/`✗` marker per existing dependency
 /// (done → `✓`, otherwise `✗`; unknown dependency IDs are printed bare),
 /// then a reverse lookup under `Tasks waiting on TXXX:`.
-/// Matching C++ `Commands::deps`.
 pub(crate) fn run(tasks_dir: &str, task_id: &str) -> Result<()> {
     require_task_id(task_id)?;
 

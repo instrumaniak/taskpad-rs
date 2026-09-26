@@ -1,4 +1,3 @@
-//! clap derive definitions for the taskpad CLI — port of `cli.cpp`.
 //!
 //! [`Cli`] is the top-level parser (global `--tasks-dir` plus one required
 //! subcommand); [`Command`] has one variant per subcommand, each carrying
@@ -8,7 +7,7 @@
 
 use clap::{Parser, Subcommand};
 
-/// Top-level CLI parser. Matching C++ `runCLI`'s `CLI::App`.
+/// Top-level CLI parser.
 #[derive(Debug, Parser)]
 #[command(
     name = "taskpad",

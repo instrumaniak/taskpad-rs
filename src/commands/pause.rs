@@ -10,7 +10,6 @@ use crate::storage;
 /// Validates the task ID, checks the task exists and isn't already
 /// pending, records the old status, sets status to Pending, and
 /// displays the transition.
-/// Matching C++ `Commands::pause`.
 pub(crate) fn run(tasks_dir: &str, task_id: &str) -> Result<()> {
     require_task_id(task_id)?;
 

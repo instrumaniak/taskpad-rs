@@ -1,4 +1,3 @@
-//! Rust port of `storage.h` / `storage.cpp` from the C++ taskpad codebase.
 //!
 //! Handles reading and writing the `.taskpad` project config file and the
 //! `status.yaml` task-metadata file. Uses `serde_saphyr` for YAML parsing and
@@ -15,7 +14,7 @@
 //! `ErrorKind::NotFound` (the C++ "not initialized" / "no status.yaml"
 //! messages) from every other read failure, which reports the OS reason.
 //!
-//! # Symlinks are followed, never rejected (C++ parity)
+//! # Symlinks are followed, never rejected
 //!
 //! Nothing here inspects symlinks. `fs::read_to_string` resolves them, the
 //! `rename` in [`atomic_write`] replaces the *link* rather than its target,
@@ -231,15 +230,6 @@ pub(crate) fn create_config(project_root: &str, task_dir: &str) -> Result<()> {
         return Err(err);
     }
     Ok(())
-}
-
-/// Check whether a `.taskpad` config file exists at `project_root`.
-///
-/// Only exercised by unit tests (production flows use `read_task_dir` /
-/// `create_config` directly), hence the scoped allow.
-#[allow(dead_code)]
-pub(crate) fn config_exists(project_root: &str) -> bool {
-    Path::new((normalize_path(project_root) + "/.taskpad").as_str()).exists()
 }
 
 /// Resolve the task directory: return `tasks_dir` if non-empty, otherwise
@@ -509,16 +499,6 @@ mod tests {
         assert!(result.is_err());
         let msg = result.unwrap_err().to_string();
         assert_eq!(msg, "Already initialized. Remove .taskpad to re-initialize");
-    }
-
-    #[test]
-    fn config_exists_false_then_true() {
-        let dir = tempdir().unwrap();
-        let root = dir.path().to_str().unwrap();
-
-        assert!(!config_exists(root));
-        create_config(root, "my-tasks").unwrap();
-        assert!(config_exists(root));
     }
 
     // ---- missing file errors ----

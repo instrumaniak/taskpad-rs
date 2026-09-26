@@ -1,21 +1,18 @@
 //! Shared command helpers for the taskpad CLI.
 //!
 //! This module re-exports the thirteen subcommand modules (`init`, `import`,
-//! `new`, `status`, `next`, `do_cmd`, `done`, `pause`, `deps`, `log`, `edit`,
+//! `new`, `status`, `next`, `do_cmd`, `done`, `pause`, `deps`, `log_cmd`, `edit`,
 //! `summary`, `remove`) and provides file-scope pure helpers extracted from
 //! `commands.cpp` that are shared across multiple commands.
 //!
-//! # No escaping of file-derived text (C++ parity)
+//! # No escaping of file-derived text
 //!
 //! Everything this module extracts from a T*.md — the goal, the first
 //! implementation step, the Files/Specs backtick items — and every task name
 //! or log message a command prints, is emitted **verbatim**. Nothing escapes,
 //! strips or validates it, so a task file containing ANSI escape sequences
 //! (or any other control characters) has them written straight to stdout and a
-//! log message keeps them in the `## Notes` entry. This matches C++ line for
-//! line (`std::cout << "Goal: " << goal`, `commands.cpp:673`), and is
-//! deliberate: sanitising would change the exact bytes of `taskpad next`,
-//! `taskpad do` and `taskpad log` for every project.
+//! log message keeps them in the `## Notes` entry.
 //!
 //! # The manual scanners are byte scanners
 //!
@@ -32,7 +29,7 @@ pub(crate) mod done;
 pub(crate) mod edit;
 pub(crate) mod import;
 pub(crate) mod init;
-pub(crate) mod log;
+pub(crate) mod log_cmd;
 pub(crate) mod new;
 pub(crate) mod next;
 pub(crate) mod pause;
@@ -51,7 +48,7 @@ use crate::validator;
 use std::collections::BTreeMap;
 
 /// Convert a kebab-case string to Title Case, capitalizing the first letter
-/// and the letter after each '-'. Matching C++ `kebabToTitle`.
+/// and the letter after each '-'.
 pub(crate) fn kebab_to_title(kebab: &str) -> String {
     let mut result = String::new();
     let mut capitalize = true;
@@ -75,7 +72,6 @@ pub(crate) fn kebab_to_title(kebab: &str) -> String {
 ///
 /// Searches for "## Status:", returns the trimmed text up to the next '\n'.
 /// Returns "" if "## Status:" is absent or has no newline after it.
-/// Matching C++ `extractStatusLine`.
 pub(crate) fn extract_status_line(content: &str) -> String {
     let pos = match content.find("## Status:") {
         Some(p) => p,
@@ -92,7 +88,7 @@ pub(crate) fn extract_status_line(content: &str) -> String {
 ///
 /// Finds the "## Depends On" section (from the '\n' after the header to
 /// the next "\n## " marker or EOF), then scans for TXXX tokens with
-/// word boundaries. Matching C++ `extractDepends`.
+/// word boundaries.
 pub(crate) fn extract_depends(content: &str) -> Vec<String> {
     let mut result = Vec::new();
     let pos = match content.find("## Depends On") {
@@ -108,7 +104,7 @@ pub(crate) fn extract_depends(content: &str) -> Vec<String> {
         Some(section) => section,
         None => return result,
     };
-    // Byte windows, the direct equivalent of C++'s
+    // Byte windows, the direct equivalent of the C++ scanner's
     // `for (size_t i = 0; i + 4 <= section.size(); ++i)`. `windows(4)` can
     // never run off the end, and `window` is a plain `&[u8]` — so a
     // multibyte character in the section can never be sliced mid-codepoint.
@@ -154,8 +150,8 @@ fn section_end(content: &str, start: usize) -> usize {
 
 /// Advance `start` across the run of blank lines that follows it.
 ///
-/// The direct equivalent of C++'s
-/// `while (start + 1 < content.size() && content[start + 1] == '\n') ++start;`.
+/// The direct equivalent of the C++ blank-line skip
+/// (`while (start + 1 < content.size() && content[start + 1] == '\n') ++start;`).
 /// Reading `as_bytes()` keeps the walk on raw bytes, so it can only ever
 /// stop on a `'\n'`, and every offset it produces is a char boundary.
 fn skip_blank_lines(content: &str, start: usize) -> usize {
@@ -167,26 +163,8 @@ fn skip_blank_lines(content: &str, start: usize) -> usize {
     start
 }
 
-/// Count tasks in `tasks` whose status equals `status`.
-/// Matching C++ `countStatus`.
-///
-/// Only exercised by unit tests — production call sites tally all three
-/// statuses in one pass via [`count_all`] — but kept as the direct port of
-/// the C++ helper.
-#[allow(dead_code)]
-pub(crate) fn count_status(tasks: &BTreeMap<String, Task>, status: Status) -> i32 {
-    let mut count = 0;
-    for task in tasks.values() {
-        if task.status == status {
-            count += 1;
-        }
-    }
-    count
-}
-
 /// Find the next available task ID by taking the max parsed task ID
 /// from `tasks` keys and adding 1. Returns `"T001"` for an empty map.
-/// Matching C++ `findNextTaskId`.
 pub(crate) fn find_next_task_id(tasks: &BTreeMap<String, Task>) -> String {
     let mut max_id = 0;
     for id in tasks.keys() {
@@ -200,7 +178,6 @@ pub(crate) fn find_next_task_id(tasks: &BTreeMap<String, Task>) -> String {
 
 /// Return `true` if every dependency in `task.depends` exists in
 /// `tasks` and has status [`Status::Done`].
-/// Matching C++ `allDepsDone`.
 pub(crate) fn all_deps_done(task: &Task, tasks: &BTreeMap<String, Task>) -> bool {
     for dep in &task.depends {
         match tasks.get(dep) {
@@ -213,7 +190,6 @@ pub(crate) fn all_deps_done(task: &Task, tasks: &BTreeMap<String, Task>) -> bool
 
 /// Return the bracketed status string for terminal display.
 /// Done→`"[done]"`, InProgress→`"[in_progress]"`, Pending→`"[pending]"`.
-/// Matching C++ `statusColor`.
 pub(crate) fn status_color(status: Status) -> &'static str {
     match status {
         Status::Done => "[done]",
@@ -226,7 +202,6 @@ pub(crate) fn status_color(status: Status) -> &'static str {
 ///
 /// Searches for "## Goal", starts after its newline, skips blank lines,
 /// then ends at the next "\n## " marker or EOF. Returns the trimmed text.
-/// Matching C++ `extractGoal`.
 pub(crate) fn extract_goal(content: &str) -> String {
     let pos = match content.find("## Goal") {
         Some(p) => p,
@@ -249,7 +224,6 @@ pub(crate) fn extract_goal(content: &str) -> String {
 /// Searches for "## Implementation Steps", starts after its newline,
 /// skips blank lines, then scans for the first "- " list item or
 /// a numbered "N." item. Returns the trimmed text, or "" if none found.
-/// Matching C++ `getFirstStep`.
 pub(crate) fn get_first_step(content: &str) -> String {
     let pos = match content.find("## Implementation Steps") {
         Some(p) => p,
@@ -266,7 +240,7 @@ pub(crate) fn get_first_step(content: &str) -> String {
         None => return String::new(),
     };
 
-    // Walk char boundaries rather than raw byte offsets. C++'s loop indexes
+    // Walk char boundaries rather than raw byte offsets. The C++ loop indexes
     // `section[i]` for every `i`, which in Rust would step into the middle
     // of a multibyte character and panic on the following `section[i..]`.
     // Only an ASCII `-` or an ASCII digit can start an item (C++ compares
@@ -297,8 +271,7 @@ pub(crate) fn get_first_step(content: &str) -> String {
 }
 
 /// The first `\n`-terminated line of `s` (or all of `s` if there is no
-/// newline), trimmed — the Rust spelling of C++'s
-/// `trim(section.substr(i + 2, lineEnd - i - 2))`.
+/// newline), trimmed.
 fn first_line(s: &str) -> String {
     match s.split('\n').next() {
         Some(line) => trim(line),
@@ -310,23 +283,12 @@ fn first_line(s: &str) -> String {
 // Shared command boilerplate
 // ---------------------------------------------------------------------------
 
-/// Error message for an invalid task ID, matching the C++ `commands.cpp`
-/// literal byte-for-byte.
-///
-/// The runtime path builds this via [`TaskpadError::invalid_id()`] (see
-/// [`invalid_task_id_error`]); the const pins the literal for tests.
-/// Only referenced by tests outside `cfg(test)` builds, hence the scoped allow.
-#[allow(dead_code)]
-pub(crate) const ERR_INVALID_ID: &str =
-    "Invalid task ID format. Expected TXXX (see Task ID Format)";
-
 /// Build the invalid-task-ID error.
 pub(crate) fn invalid_task_id_error() -> TaskpadError {
     TaskpadError::invalid_id()
 }
 
 /// Validate `task_id`, returning [`invalid_task_id_error`] on failure.
-/// Matching the `isValidTaskId` guard at the top of most C++ commands.
 pub(crate) fn require_task_id(task_id: &str) -> Result<()> {
     if validator::is_valid_task_id(task_id) {
         Ok(())
@@ -362,8 +324,7 @@ pub(crate) fn load_status(tasks_dir: &str) -> Result<(String, StatusFile)> {
 /// `Commands::do_`'s error text: `all_deps_done` is false when a dependency
 /// is absent from `status.yaml`, but this function cannot report it, so a task
 /// whose every dependency is missing yields an empty list and the degenerate
-/// `Unmet dependencies: . Use --force to proceed`. C++ parity — the same two
-/// loops produce the same output (`commands.cpp:645-656`).
+/// `Unmet dependencies: . Use --force to proceed`.
 pub(crate) fn unmet_deps<'t>(
     task: &'t Task,
     tasks: &BTreeMap<String, Task>,
@@ -380,7 +341,6 @@ pub(crate) fn unmet_deps<'t>(
 }
 
 /// IDs of the tasks depending on `id`, in key order.
-/// Matching the reverse-lookup loops in `Commands::deps`/`remove`/`done`.
 pub(crate) fn dependents_of<'m>(tasks: &'m BTreeMap<String, Task>, id: &str) -> Vec<&'m String> {
     let mut out = Vec::new();
     for (entry_id, entry) in tasks {
@@ -397,10 +357,7 @@ pub(crate) fn dependents_of<'m>(tasks: &'m BTreeMap<String, Task>, id: &str) -> 
 ///
 /// Single canonical implementation of the comparator previously duplicated
 /// in `Commands::status` (pairwise best-tracking) and `Commands::next`
-/// (candidate sort) — both reduce to this minimum. The comparison keys off
-/// the map keys, matching `Commands::next`; `Commands::status` compared
-/// `task.id` instead, which is equal to the key for every file produced by
-/// the reader (it re-threads the map key into `Task.id`).
+/// (candidate sort) — both reduce to this minimum.
 pub(crate) fn pick_next_task(tasks: &BTreeMap<String, Task>) -> Option<String> {
     let mut best: Option<(&String, &Task)> = None;
     for (id, task) in tasks {
@@ -427,7 +384,6 @@ pub(crate) fn pick_next_task(tasks: &BTreeMap<String, Task>) -> Option<String> {
 }
 
 /// Status counts for a task map, tallied in one pass.
-/// Matching the `countStatus` triple in `status`/`summary`/`import`.
 pub(crate) struct Counts {
     pub(crate) done: i32,
     pub(crate) in_progress: i32,
@@ -488,6 +444,8 @@ pub(crate) fn task_detail_lines(content: &str) -> Vec<String> {
 mod tests {
     use super::*;
 
+    const ERR_INVALID_ID: &str = "Invalid task ID format. Expected TXXX (see Task ID Format)";
+
     #[test]
     fn test_kebab_to_title() {
         assert_eq!(kebab_to_title("project-setup"), "Project Setup");
@@ -512,47 +470,6 @@ mod tests {
         let content = "## Depends On\n- T001\n- T002\n## Phase:";
         assert_eq!(extract_depends(content), vec!["T001", "T002"]);
         assert_eq!(extract_depends("no depends"), Vec::<String>::new());
-    }
-
-    #[test]
-    fn test_count_status() {
-        let mut tasks = BTreeMap::new();
-        tasks.insert(
-            "T001".to_string(),
-            Task {
-                id: "T001".to_string(),
-                name: "A".to_string(),
-                status: Status::Done,
-                depends: vec![],
-                phase: 0,
-                critical: false,
-            },
-        );
-        tasks.insert(
-            "T002".to_string(),
-            Task {
-                id: "T002".to_string(),
-                name: "B".to_string(),
-                status: Status::Pending,
-                depends: vec![],
-                phase: 0,
-                critical: false,
-            },
-        );
-        tasks.insert(
-            "T003".to_string(),
-            Task {
-                id: "T003".to_string(),
-                name: "C".to_string(),
-                status: Status::Done,
-                depends: vec![],
-                phase: 0,
-                critical: false,
-            },
-        );
-        assert_eq!(count_status(&tasks, Status::Done), 2);
-        assert_eq!(count_status(&tasks, Status::Pending), 1);
-        assert_eq!(count_status(&tasks, Status::InProgress), 0);
     }
 
     #[test]

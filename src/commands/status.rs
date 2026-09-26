@@ -9,7 +9,6 @@ use std::collections::BTreeMap;
 ///
 /// Groups tasks by phase, marks the next actionable task, shows
 /// blocked-by information, and prints a progress summary.
-/// Matching C++ `Commands::status`.
 pub(crate) fn run(tasks_dir: &str) -> Result<()> {
     let (_, sf) = load_status(tasks_dir)?;
 
@@ -55,7 +54,7 @@ pub(crate) fn run(tasks_dir: &str) -> Result<()> {
             // occupying more than one terminal cell, and the `[status]`
             // column visibly misaligns for those rows only.
             //
-            // Deliberate C++ parity: padding by display width would change the
+            // Deliberate parity: padding by display width would change the
             // exact bytes of every `taskpad status` line for every project
             // with a non-ASCII task name, so the byte-based width is kept.
             let padding = std::cmp::max(1, 20usize.saturating_sub(task.name.len()));

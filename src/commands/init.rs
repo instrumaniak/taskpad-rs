@@ -4,18 +4,17 @@ use crate::storage;
 
 /// Initialize a taskpad project.
 ///
-/// Creates the `.taskpad` config file and the task directory.
-/// Matching C++ `Commands::init` (which likewise writes the config to
-/// the current directory via `createConfig(".", dir)`).
+/// Creates the `.taskpad` config file and the task directory, both under the
+/// current directory (`createConfig(".", dir)`).
 pub(crate) fn run(tasks_dir: &str) -> Result<()> {
     run_in(".", tasks_dir)
 }
 
 /// Initialize a taskpad project under an explicit project root.
 ///
-/// `run` fixes the root to `"."` for C++ parity; this helper exposes the
-/// root so tests can exercise initialization inside a temp dir without
-/// touching (or depending on) the real working directory.
+/// `run` fixes the root to `"."`; this helper exposes the root so tests can
+/// exercise initialization inside a temp dir without touching (or depending
+/// on) the real working directory.
 fn run_in(project_root: &str, tasks_dir: &str) -> Result<()> {
     let dir = if tasks_dir.is_empty() {
         "specs/tasks".to_string()

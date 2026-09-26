@@ -8,7 +8,6 @@ use std::collections::BTreeMap;
 ///
 /// Prints totals with percentages, a per-phase done/total breakdown in
 /// phase order, and the critical path with its own status counts.
-/// Matching C++ `Commands::summary`.
 pub(crate) fn run(tasks_dir: &str) -> Result<()> {
     let (_, sf) = load_status(tasks_dir)?;
 
@@ -109,10 +108,8 @@ fn render(sf: &StatusFile) -> Vec<String> {
     lines
 }
 
-/// Format `count / total` as a percentage with one decimal place.
-///
-/// Matching C++ `printPct` inside `Commands::summary` (`std::fixed`,
-/// precision 1; `"0.0%"` when `total == 0`).
+/// Format `count / total` as a percentage with one decimal place
+/// (`std::fixed`, precision 1; `"0.0%"` when `total == 0`).
 ///
 /// Rounding parity note: Rust's `{:.1}` and libstdc++'s
 /// `std::fixed << std::setprecision(1)` were compared directly (scratch

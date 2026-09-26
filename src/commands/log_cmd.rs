@@ -1,7 +1,3 @@
-// Module name `log` shadows nothing today, but `log` is also the name of a
-// very common Rust logging crate; if that crate is ever added as a dependency
-// this module may need renaming (e.g. `log_cmd`) — see task T011.
-
 use crate::commands::{load_status, require_task_id, task_not_found};
 use crate::models::Result;
 use crate::models::TaskpadError;
@@ -16,14 +12,11 @@ use crate::utils;
 /// when the T\*.md is missing) and reports the file that was written.
 /// The timestamp comes from [`utils::current_timestamp()`] here at the
 /// command layer so `storage::append_log` stays pure and testable.
-/// Matching C++ `Commands::log`.
 ///
 /// The message is stored verbatim in the `## Notes` entry — only emptiness is
 /// rejected, never the contents. ANSI escape sequences, control characters
 /// and newlines all survive into the task file, and are re-emitted verbatim
-/// by any later `taskpad` command that echoes a T\*.md section. C++ parity
-/// (`Commands::log` writes `message` straight into the entry); escaping it
-/// would change the bytes of both the task file and the printed output.
+/// by any later `taskpad` command that echoes a T\*.md section.
 pub(crate) fn run(tasks_dir: &str, task_id: &str, message: &str) -> Result<()> {
     require_task_id(task_id)?;
 
