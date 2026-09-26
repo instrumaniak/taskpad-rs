@@ -8,30 +8,6 @@
 
 use super::common::*;
 
-/// `assert.match(hay, /head[\s\S]*?mid[\s\S]{0,n}tail/)` — the *mixed* form the
-/// `edit.mjs` regexes use: an unbounded lazy gap up to `mid`, then a gap of at
-/// most `n` characters after it.
-///
-/// [`has_ordered_within`] caps *every* consecutive gap at `n`, so it is
-/// stricter than this pattern: in the real `status.yaml` there are 42
-/// characters between `T001:` and `depends:`, so the helper would reject a
-/// file the regex accepts. Reproduced here rather than widening `n`, per the
-/// porting brief's "do not widen the gap bound".
-fn has_ordered_bounded_tail(hay: &str, head: &str, mid: &str, tail: &str, max_gap: usize) {
-    let found = hay.match_indices(head).any(|(at, _)| {
-        let rest = &hay[at + head.len()..];
-        rest.match_indices(mid).any(|(at, _)| {
-            let after = &rest[at + mid.len()..];
-            after.find(tail).is_some_and(|gap| gap <= max_gap)
-        })
-    });
-    assert!(
-        found,
-        "expected {head:?} then {mid:?} then {tail:?} within {max_gap} chars\n\
-         --- actual ---\n{hay}\n--------------"
-    );
-}
-
 // ---------------------------------------------------------------------------
 // task-level status change  (2 `it` merged: it2 reads the yaml it1 wrote)
 // ---------------------------------------------------------------------------

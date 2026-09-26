@@ -166,21 +166,21 @@ false
 
 ## Acceptance Criteria
 
-- [ ] `tests/e2e/main.rs` exists and is the test target root (verified: `cargo test` lists
+- [x] `tests/e2e/main.rs` exists and is the test target root (verified: `cargo test` lists
       the `e2e` target and runs the ported tests — a `tests/e2e/mod.rs` is silently ignored)
-- [ ] `tests/common/mod.rs` provides the shared helpers and is reachable from the test
+- [x] `tests/common/mod.rs` provides the shared helpers and is reachable from the test
       target via `#[path]`; no duplicated helper logic across the 13 test files
-- [ ] All 13 `.mjs` files and `tests/helpers.mjs` are deleted, replaced by `.rs` files
-- [ ] Every one of the 13 `.mjs` files has a corresponding `.rs` module (`do.mjs` →
+- [x] All 13 `.mjs` files and `tests/helpers.mjs` are deleted, replaced by `.rs` files
+- [x] Every one of the 13 `.mjs` files has a corresponding `.rs` module (`do.mjs` →
       `do_cmd.rs`), with no coverage dropped: all 123 `it` blocks' assertions are present
-- [ ] Every test creates its own temp dir; `cargo test` is green when run in parallel
-- [ ] `cargo build` passes
-- [ ] `cargo clippy --all-targets -- -D warnings` passes
-- [ ] `cargo test` passes — the 179 pre-existing unit tests plus the new E2E tier
-- [ ] `cargo fmt` produces no diff
-- [ ] `specs/spec.main.md`, `specs/spec.testing.md`, `AGENTS.md` (task-loop step 5) and
+- [x] Every test creates its own temp dir; `cargo test` is green when run in parallel
+- [x] `cargo build` passes
+- [x] `cargo clippy --all-targets -- -D warnings` passes
+- [x] `cargo test` passes — the 179 pre-existing unit tests plus the new E2E tier
+- [x] `cargo fmt` produces no diff
+- [x] `specs/spec.main.md`, `specs/spec.testing.md`, `AGENTS.md` (task-loop step 5) and
       `CHANGELOG.md` no longer reference the Node.js E2E tier
-- [ ] The C++ parity cross-check still works: `TASKPAD_BIN=../taskpad/taskpad cargo test
+- [x] The C++ parity cross-check still works: `TASKPAD_BIN=../taskpad/taskpad cargo test
       --test e2e` runs, and reproduces the single documented divergence (`edit --phase abc`)
       rather than erroring on a missing binary or resolving the relative path from the temp
       project directory
@@ -196,3 +196,54 @@ false
   `node --test tests/e2e/*.mjs` 123 pass / 0 fail across 80 suites.
 - Do **not** use the `TASKPAD_BIN` override to skip a failing test. It exists so the C++
   cross-check remains reproducible, not as an escape hatch.
+
+- [2026-09-27 02:21] Replaced 13 .mjs files with 106 Rust integration tests (tests/e2e/, tests/common/mod.rs); cargo test 179 unit + 106 e2e green; C++ cross-check reproduces the single documented edit --phase abc divergence
+## Implementation Log
+
+**Result:** 123 `it` blocks transcribed into 106 `#[test]` fns across 13 modules.
+`cargo test` = 179 unit + 106 E2E, all green. `TASKPAD_BIN=../taskpad/taskpad cargo
+test --test e2e` = 105 passed / 1 failed, the single failure being the documented
+`edit --phase abc` divergence — the same 123/122 baseline the `.mjs` suite hit at T015.
+
+**Assertion coverage is provably complete.** The `.mjs` suite had 318 assertion
+calls (186 `assert.match`/`doesNotMatch` + 118 `assert.equal` + 12 `assert.ok` + 2
+`assert.deepEqual`). The port has 319 assertion call sites. The +1 is fully
+accounted for: `import.mjs`'s `/T002[\s\S]*depends:\n.*- T001/` needs two calls
+(`contains` + `has_line_followed_by`), because `.*` must not cross the newline.
+A script check confirms no `#[test]` is assertion-free.
+
+**Layout / harness decisions actually taken:**
+- `tests/common/mod.rs` gained one helper beyond the task's list:
+  `has_ordered_bounded_tail`, for the *mixed* form `/head[\s\S]*mid[\s\S]{0,n}tail/`.
+  `has_ordered_within` caps every consecutive gap and is therefore stricter than that
+  pattern; in the real `status.yaml` there are 42 chars between `T001:` and `depends:`,
+  so the obvious mapping rejects a file the regex accepts. Widening `n` to 42 would
+  have weakened the assertion, so the mixed form got its own exact helper.
+- The root guard on `new`'s unwritable-directory test is an addition beyond strict
+  transcription (human-approved): `chmod 0o555` does not stop root, so the test would
+  fail in a root CI container. It self-skips with a write probe, matching the existing
+  `src/storage.rs:588-597` precedent. Verified non-skipping as non-root by mutating
+  the expected literal and confirming the test fails.
+
+**Deviations from the task file, and why:**
+- The task's step 3 said to merge "the 6 multi-`it` `import.mjs` describes, and the
+  13 multi-`it` `edit.mjs` describes". The actual multi-`it` describe counts are 6 and
+  **12**, and only 2 of import's are genuinely dependent — merging all of them yields
+  82 tests, not the stated "roughly 100-110". Followed the stated *rule* ("merge only
+  where a later case is the negative counterpart of an action the test performs") plus
+  the 100-110 target instead, landing at 106.
+- `README.md` was added to the file list (human-approved). It carried 5 references to
+  the Node tier, including a `cargo build --release` prerequisite for testing that no
+  longer exists. Without it the repo would ship broken test instructions.
+
+**Preserved deliberately, not "cleaned up":**
+- `AGENTS.md`'s `.mjs` mentions in Locked decisions §7/§8 and the conflicts table are
+  historical records of what T007-T015 did, not live instructions. Only the task-loop
+  step 5 bullet was in scope, and it was already updated at `74c910f`.
+- `spec.testing.md:229` ("a net simplification versus the C++ version's Node 18+
+  requirement") and `CHANGELOG.md:25` ("the C++ repo's `node:test` suite") are
+  provenance prose asserting this repo needs no Node — both correct as written.
+- `AGENTS.md` Locked decision §8 now has a dangling pointer: it cites
+  `spec.testing.md` §3 for `tests/helpers.mjs` edits, but §3 now documents the Rust
+  harness. **Not fixed here** — it is a locked decision and re-litigating one needs a
+  human ruling. Flagged for a follow-up task.

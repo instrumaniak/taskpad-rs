@@ -157,7 +157,7 @@ tasks:
     critical: false
   T023:
     name: E2e Test Refactor
-    status: pending
+    status: done
     depends:
       - T022
     phase: 6

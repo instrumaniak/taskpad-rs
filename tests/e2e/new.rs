@@ -118,6 +118,16 @@ fn errors_when_the_task_file_cannot_be_written() {
     let p = Project::new(Fixture::StatusYaml(FIRST_TASK_DONE));
 
     p.set_mode("tasks", 0o555);
+    // Self-skip when the mode is not enforced for us — `chmod` does not stop
+    // root, so as root the write would succeed and the assertions below would be
+    // meaningless. Same guard as `src/storage.rs`'s unreadable-file test.
+    let probe = p.path("tasks/.perm-probe");
+    if std::fs::write(&probe, "").is_ok() {
+        let _ = std::fs::remove_file(&probe);
+        p.set_mode("tasks", 0o755);
+        return;
+    }
+
     let r = p.run(&["new", "Second Task"]);
     // Restore the mode *before* the first assertion. The `.mjs` got this from a
     // try/finally; Rust has no equivalent, and `TempDir`'s `Drop` ignores

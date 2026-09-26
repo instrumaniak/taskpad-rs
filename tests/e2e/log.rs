@@ -39,8 +39,10 @@ fn appends_under_the_existing_notes_section_in_order() {
 
     let content = p.read("tasks/T001-first-task.md");
     // `.mjs` `content.indexOf('first entry') < content.indexOf('second entry')`.
-    // `find` returns `usize` here, so a missing fragment is a huge offset
-    // rather than the -1 the JS comparison relied on.
+    // `Option` ordering makes this exactly equivalent to the JS comparison:
+    // `indexOf` returns -1 for a missing fragment and `-1 < n` is true, and
+    // `find` returns `None` and `None < Some(n)` is likewise true — so a
+    // missing *first* entry passes in both languages, as it did in the `.mjs`.
     assert!(content.find("first entry") < content.find("second entry"));
     assert_eq!(content.matches("## Notes").count(), 1);
     has_log_entry(&content, "second entry");
