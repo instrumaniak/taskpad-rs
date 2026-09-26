@@ -248,8 +248,8 @@ Writer facts, byte level:
 
 Reader tolerance (both binaries must accept everything below):
 
-- Header comments — e.g. `# taskpad status file`, which the `tests/helpers.mjs` fixtures
-  write and older copies of this spec showed.
+- Header comments — e.g. `# taskpad status file`, which the E2E fixtures in
+  `tests/common/mod.rs` write and older copies of this spec showed.
 - `depends: []`, `depends: ~`, and flow style `depends: [T001]`.
 - Quoted or plain `name` values; missing optional fields (defaults: name `""`, status
   `pending`, depends `[]`, phase `0`, critical `false`).
@@ -364,9 +364,9 @@ Task directory resolution order:
 
 For exact output formatting of every command (column widths, arrows, symbols, punctuation),
 treat the C++ source (`src/commands.cpp`) and the E2E test assertions
-(`tests/e2e/*.mjs`) as the source of truth — they encode the literal strings this spec
-paraphrases. Reproducing that output byte-for-byte is what makes the E2E suite reusable
-unmodified against the Rust binary; see `spec.testing.md`.
+(`tests/e2e/*.rs`) as the source of truth — they encode the literal strings this spec
+paraphrases. Reproducing that output byte-for-byte is what lets the E2E suite verify the
+Rust binary; see `spec.testing.md`.
 
 ---
 
@@ -496,11 +496,23 @@ This replaces the C++ version's Implementation Details section (Makefile, CLI11/
 | `serde` (`derive` feature) | Struct ↔ YAML mapping | Replaces the manual `YAML::Node` tree-building in the C++ `storage.cpp` — derive `Serialize`/`Deserialize` on `Task`/`StatusFile`/`ProjectConfig` instead. |
 | `serde-saphyr` (1.x) | YAML parse/emit | **Chosen at the planning session (locked — see AGENTS.md)**; replaces yaml-cpp. serde-compatible, maintained, panic-free parsing. **Do not use `serde_yaml`** — it and its direct forks are unmaintained/deprecated (RUSTSEC-2025-0068 territory). |
 | `thiserror` | Error enum boilerplate | Backs `TaskpadError` (§3). |
-| `tempfile` (**dev-dependency** only) | Isolated temp dirs for `storage.rs` unit tests | Required by `spec.testing.md` §2; added to `Cargo.toml` in T001. |
+| `tempfile` (**dev-dependency** only) | Isolated temp dirs | Required by `spec.testing.md` §2 for `storage.rs` unit tests, and by §3 for the E2E tier's per-test project fixtures. Added to `Cargo.toml` in T001. |
 | — (std only) | File I/O, path handling | `std::fs`, `std::path::{Path, PathBuf}` — no need for a filesystem crate beyond std for this tool's needs. |
+| — (std only) | E2E process + assertion layer | `std::process::Command`, `env!("CARGO_BIN_EXE_taskpad")`, and the three assertion helpers in `tests/common/mod.rs`. The E2E tier deliberately adds **no** dev-dependency: see the note below. |
 
 The crate list above is closed: no `regex` (port the C++ manual scanners — see AGENTS.md
 Locked decision §1), no other additions without a human ruling.
+
+**The E2E tier uses no test framework crate** (ruled 2026-09-26, T023). `assert_cmd` +
+`predicates` is the common ecosystem default for CLI integration tests, and ripgrep, fd and
+bat all appear in that ecosystem — but `assert_cmd`'s `.assert()` runs the binary *eagerly*
+(these tests run once and then assert several things, including reading `status.yaml`
+back), and its predicates match *untrimmed* bytes (this suite compares trimmed output).
+Adopting it would mean bypassing its main API and hand-writing a trim predicate anyway, on
+top of 8 transitive dependencies. ripgrep, fd and fulgur-cli all hand-roll the equivalent
+helpers over `Command::output()` instead, which is what `tests/common/mod.rs` does. `regex`
+stays banned; the 14 cross-line assertions in the suite are covered by a
+`contains_after`-style helper.
 
 Deliberately **not** using: `nlohmann-json`'s Rust equivalent (`serde_json`) — the C++
 version lists `nlohmann-json3-dev` as a dependency but never actually uses it (confirmed:
@@ -535,8 +547,22 @@ taskpad/
 │       ├── summary.rs
 │       └── remove.rs
 └── tests/
-    ├── helpers.mjs           # copied from the C++ repo, then the 3 edits in spec.testing §3
-    └── e2e/                  # copied from the C++ repo + the missing files filled in
+    ├── common/mod.rs         # shared E2E helpers (Project, Output, fixture builders, asserts)
+    └── e2e/                  # one module per command area, transcribed from the C++ suite
+        ├── main.rs           # the test target root — `mod` declarations + shared-helper include
+        ├── init.rs
+        ├── import.rs
+        ├── new.rs
+        ├── status.rs
+        ├── next.rs
+        ├── do_cmd.rs
+        ├── done.rs
+        ├── pause.rs
+        ├── deps.rs
+        ├── log.rs
+        ├── edit.rs
+        ├── summary.rs
+        └── remove.rs
 ```
 
 This is a deliberate split of the C++ version's single 1,189-line `commands.cpp` into one
@@ -553,8 +579,8 @@ shape:
 
 ```bash
 cargo build --release        # replaces `make`
-cargo test                   # replaces `make test` (runs #[test] fns across all modules)
-node --test tests/e2e/*.mjs  # replaces `make e2e-test` — unchanged
+cargo test                   # replaces `make test` + `make e2e-test` — runs both the
+                             # in-crate #[test] fns and the tests/e2e/ integration tier
 cargo install --path .       # replaces `make install` (installs to ~/.cargo/bin by default)
 ```
 
@@ -573,10 +599,12 @@ target is added later — the two commands above cover it. Not required for the 
 
 Two-tier approach, unchanged in spirit from the C++ version:
 - **Unit tests**: Rust `#[test]` (in-process, fast)
-- **E2E tests**: Node.js `node:test` (binary-as-black-box via CLI) — **reused unmodified**
-  from the C++ repo
+- **E2E tests**: Rust integration tests under `tests/e2e/` (binary-as-black-box via
+  `std::process::Command`), transcribed assertion-for-assertion from the C++ repo's
+  `node:test` suite — the literals they assert are the C++ literals
 
-See [specs/spec.testing.md](spec.testing.md) for the complete testing specification.
+Both tiers run under a single `cargo test`. See
+[specs/spec.testing.md](spec.testing.md) for the complete testing specification.
 
 ---
 

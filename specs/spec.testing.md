@@ -8,15 +8,16 @@ tier changes framework:
 | Tier | Framework | Target | Speed |
 |------|-----------|--------|-------|
 | Unit | Rust `#[test]` (built into `cargo test`) | Individual functions (in-process) | ~100ms |
-| E2E  | node:test (Node.js) — **reused unmodified from the C++ repo** | CLI binary as black box | ~2-3s |
+| E2E  | Rust integration tests (`tests/e2e/`) — **transcribed from the C++ repo's `node:test` suite** | CLI binary as black box | ~2-3s |
 
-**Run all tests:** `cargo test && node --test tests/e2e/*.mjs`
+**Run all tests:** `cargo test`
 
 The E2E tier is the single most important compatibility check for this port: those tests
 assert on the literal stdout/stderr/exit-code of the compiled binary and know nothing about
-what language produced it. If they pass against the Rust binary without modification (aside
-from pointing at the new binary path — see §3), the port is behaviorally correct by
-definition. Treat any E2E test that needs its *assertions* changed to pass as a bug in the
+what language produced it. They were originally copied verbatim from the C++ repo's
+`node:test` suite, so their expected strings *are* the C++ strings; T023 transcribes them
+into Rust (`tests/e2e/*.rs`) with the assertions unchanged, which keeps that property.
+Treat any E2E test that needs its *assertions* changed to pass as a bug in the
 Rust port, not a spec update — the one exception is a case where the original C++ behavior
 is discovered to violate its own spec (`spec.main.md`), which should be fixed in both, not
 silently diverged on.
@@ -87,61 +88,109 @@ and the Rust port should resolve that rather than copy the inconsistency forward
 
 ---
 
-## 3. E2E Tests (node:test) — Reused Unmodified
+## 3. E2E Tests (Rust integration tests)
 
-### What carries over
+### Layout
 
-`tests/helpers.mjs` and every file under `tests/e2e/` from the C++ repo are **copied** into
-this repo (the C++ repo stays read-only — see AGENTS.md). They spawn a compiled binary and
-assert on its stdout/stderr/exit code — they have no dependency on the implementation
-language.
+One test target, one module per command area, and a shared helper module — the convention
+used by ripgrep (`tests/tests.rs` declaring one `mod` per feature area) and fd
+(`tests/testenv/mod.rs` + `mod testenv;`):
 
-### The required changes
-
-`tests/helpers.mjs` currently does this:
-
-```js
-const BINARY = path.join(ROOT, 'taskpad');
-const BUILD_FLAG = path.join(os.tmpdir(), '.taskpad-e2e-built');
-// ...
-function ensureBuilt() {
-  if (fs.existsSync(BUILD_FLAG)) return;
-  execSync('make', { stdio: 'inherit', cwd: ROOT });
-  fs.writeFileSync(BUILD_FLAG, '');
-}
+```
+tests/
+├── common/mod.rs     # shared helpers: Project, Output, fixture builders, assertion helpers
+└── e2e/
+    ├── main.rs       # the test target root
+    └── <command>.rs  # one module per command area
 ```
 
-For the Rust binary, update these **three** spots:
+**The target root must be named `main.rs`, not `mod.rs`.** Cargo auto-discovers only
+`tests/*.rs` and `tests/*/main.rs`; a `tests/e2e/mod.rs` is silently ignored — `cargo test`
+reports zero tests and prints no warning. Its contents are the crate-level clippy `allow`
+(below), `#[path = "../common/mod.rs"] mod common;` (a plain `mod common;` looks for
+`tests/e2e/common.rs` and will not find `tests/common/mod.rs`), and the module declarations.
+`do.mjs` becomes `do_cmd.rs` because `do` is a Rust keyword.
 
-```js
-const BINARY = path.join(ROOT, 'target', 'release', 'taskpad');
-const BUILD_FLAG = path.join(os.tmpdir(), '.taskpad-rs-e2e-built');
-// ...
-function ensureBuilt() {
-  if (fs.existsSync(BUILD_FLAG)) return;
-  execSync('cargo build --release', { stdio: 'inherit', cwd: ROOT });
-  fs.writeFileSync(BUILD_FLAG, '');
-}
-```
+### The shared harness: `tests/common/mod.rs`
 
-The `BUILD_FLAG` rename is not optional: the original `$TMPDIR/.taskpad-e2e-built` path is
-shared with the C++ repo's suite running on the same machine — if the C++ suite has ever
-run, the stale flag makes `ensureBuilt()` skip the build entirely and the Rust binary is
-never compiled.
+`Project` wraps a `tempfile::TempDir` (its `Drop` replaces the old harness's `destroy()`)
+plus the project root, and exposes `run(&[&str])` / `run_interactive(input, &[&str])` built
+on `std::process::Command` with `.current_dir(root)` and `.output()`, plus filesystem
+accessors (`path`, `read`, `write`, `exists`, `read_dir_sorted`, `remove`, `set_mode`).
+`Output { stdout, stderr, code }` returns both streams **trimmed**, matching what the
+`node:test` harness did — that trim is why assertions transcribe directly.
 
-Nothing else in `helpers.mjs` or any `tests/e2e/*.mjs` file should need to change. If a
-change beyond this turns out to be necessary to make an E2E test pass, that's a signal the
-Rust command implementation has drifted from the C++ output format — fix the implementation,
-not the test (see §1).
+Two fixture spec types, not one: a `TaskSpec` for the `status.yaml`-shaped fixtures, and an
+`ImportSpec` for the "import these `T*.md` files" fixtures, where `phase`/`critical`/`status`
+are optional because the generated markdown only carries those sections when the caller sets
+them.
 
-### Test Files (unchanged list from the C++ spec)
+### Assertions
 
-One file per command area under `tests/e2e/`: `init.mjs`, `import.mjs`, `new.mjs`,
-`status.mjs`, `next.mjs`, `do.mjs`, `done.mjs`, `pause.mjs`, `deps.mjs`, `log.mjs`,
-`edit.mjs`, `summary.mjs`, `remove.mjs`. (The C++ repo currently ships `import.mjs`,
-`next.mjs`, `remove.mjs` under `tests/e2e/` — the remaining files are gaps that exist in the
-C++ repo too, per its own `spec.testing.md`; fill them in **in this repo only** as each
-command's port task completes — never write into `../taskpad`.)
+No test framework crate (see `spec.main.md` §8 for the ruling and the reasoning). The suite's
+186 `assert.match` / `assert.doesNotMatch` calls are translated without a regex crate using
+helpers in `tests/common/mod.rs`:
+
+| Helper | Covers |
+|---|---|
+| Literal substring assertion | literal substring patterns |
+| `assert_line(out, line)` | exact whole-line (`^…$`, `m`-flag) patterns |
+| Ordered-fragment assertions | same-line `.*` and unbounded cross-line `[\s\S]*` patterns |
+| Bounded cross-line assertion | `[\s\S]{0,n}` patterns; enforce the maximum gap |
+| Explicit std-only predicates | `/i`, ASCII digit/date and non-whitespace patterns, anchored line prefixes, and dynamically constructed exact lines |
+
+The 118 `assert.equal` calls map onto plain `assert_eq!`. Negated regex assertions must
+negate the equivalent full predicate; do not reduce them to substring negation when the
+original pattern had additional semantics.
+
+### Cargo/lint interaction
+
+Two things the harness must get right, both of which fail loudly if omitted:
+
+- `Cargo.toml`'s `[lints.clippy] unwrap_used`/`expect_used = "deny"` **does** apply to
+  integration-test targets, so `tests/e2e/main.rs` needs
+  `#![allow(clippy::unwrap_used, clippy::expect_used)]` — the counterpart of `src/main.rs`'s
+  `#![cfg_attr(test, allow(...))]`, and consistent with "no `unwrap()` outside test code".
+- An unused helper in `tests/common/mod.rs` is a `dead_code` **error** under
+  `clippy -- -D warnings`, so that module carries a module-level `#![allow(dead_code)]`: a
+  shared helper library's API is legitimately wider than any single consumer.
+
+### Binary discovery
+
+`env!("CARGO_BIN_EXE_taskpad")` gives the debug binary Cargo just built, so the tier no
+longer needs `cargo build --release` first. Resolve an explicit `TASKPAD_BIN` override
+before the runtime and compile-time Cargo paths. Canonicalize a relative override while the
+test process is in the package root, before child commands change directory to each temp
+project. This keeps the C++ parity cross-check reproducible:
+`TASKPAD_BIN=../taskpad/taskpad cargo test --test e2e` should reproduce the single documented
+divergence (`edit --phase abc`, where the C++ binary aborts on an uncaught `std::stoi`
+exception) and pass everything else.
+
+### Transcription rule
+
+These tests were originally copied verbatim from the C++ repo, so their expected strings are
+the C++ strings; the Rust port transcribes them with the assertions unchanged. If a ported
+assertion needs changing to pass, that's a signal the Rust command implementation has drifted
+from the C++ output format — fix the implementation, not the test (see §1). `../taskpad` stays
+read-only; the `.mjs` originals are recoverable from this repo's git history.
+
+### Test Files
+
+One module per command area under `tests/e2e/`: `init`, `import`, `new`, `status`, `next`,
+`do_cmd`, `done`, `pause`, `deps`, `log`, `edit`, `summary`, `remove`. (The C++ repo ships
+only `import`, `next` and `remove` under `tests/e2e/` — the rest were gaps in the C++ repo
+too, per its own `spec.testing.md`, filled in **in this repo only**; never write into
+`../taskpad`.)
+
+### Test granularity
+
+Each `#[test]` builds its own `Project` and is independent, so the suite is safe under
+`cargo test`'s parallel execution. When transcribing, split a multi-`it` `describe` into
+separate tests wherever each case only reads an unmutated fixture, and merge into one test
+only where a later case genuinely depends on an earlier one's side effect (e.g. `init`'s
+unlink → init → re-init sequence). Splitting matters because Rust aborts a test at its first
+failed assertion, so merging read-only cases would lose the per-case failure reporting the
+`node:test` suite had.
 
 ### Coverage Requirements
 
@@ -151,7 +200,7 @@ Unchanged from the C++ spec:
 2. **Flag combinations** — every documented flag is exercised
 3. **Error messages** — every error/warning/info message from `spec.main.md` §6 has a test
    that triggers it
-4. **Prompt workflows** — interactive confirmation (`y`/`N`) tested via `runInteractive`
+4. **Prompt workflows** — interactive confirmation (`y`/`N`) tested via `run_interactive`
 5. **Non-zero exit codes** — error conditions exit non-zero; prompts do not
 6. **File system effects** — files created, modified, or deleted as specified
 
@@ -160,28 +209,33 @@ Unchanged from the C++ spec:
 ## 4. Running Tests
 
 ```bash
-# Unit tests only (cargo test, ~100ms-few seconds depending on suite size)
+# Everything (both tiers)
 cargo test
 
-# E2E tests only (node:test, ~2-3s) — requires a release build first
-cargo build --release
-node --test tests/e2e/*.mjs
+# E2E tier only
+cargo test --test e2e
 
-# Everything
-cargo test && cargo build --release && node --test tests/e2e/*.mjs
+# A single command area's tests
+cargo test --test e2e edit
+
+# Lints, which the harness depends on (§3)
+cargo clippy --all-targets -- -D warnings
 ```
 
 ### Requirements
 
 - A stable Rust toolchain (`rustup show` to check).
-- Node.js 18+ (for `node:test`) — same requirement as the C++ version, unchanged.
-- No `npm install` required — zero Node.js dependencies, same as before.
+- **No Node.js requirement** — the E2E tier is Rust. CI images need a Rust toolchain and
+  nothing else, which is a net simplification versus the C++ version's Node 18+ requirement.
+- No separate build step: `cargo test` builds the binary the E2E tier drives, via
+  `CARGO_BIN_EXE_taskpad`. The tier exercises the **debug** binary; `cargo build --release`
+  is only needed for distribution, not for testing.
 
 ---
 
 ## 5. CI Integration
 
-CI should run the full command from §4. No system package installation step is needed
-before it (unlike the C++ version's `apt install libcli11-dev libyaml-cpp-dev ...`) beyond
-whatever the CI image needs to have a Rust toolchain and Node.js 18+ available — this is a
-net simplification of the CI setup, worth noting in the port's README/CI config.
+CI should run `cargo fmt --check`, `cargo clippy --all-targets -- -D warnings` and
+`cargo test`. No system package installation step is needed before it (unlike the C++
+version's `apt install libcli11-dev libyaml-cpp-dev ...`) and no Node.js runtime — just a
+Rust toolchain in the CI image.

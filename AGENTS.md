@@ -159,11 +159,9 @@ For each task:
    - `cargo build`
    - `cargo clippy --all-targets -- -D warnings`
    - `cargo test`
-   - any E2E file named in the task's acceptance criteria (`node --test tests/e2e/<name>.mjs`)
-     — only applicable from T015 onward, since the E2E suite needs the wired release binary
-     and the rewired `helpers.mjs`. For T007–T013 the E2E boxes follow the deferral process
-     (Locked decision §7); for those tasks, also make sure the named `.mjs` file exists in
-     this repo's `tests/e2e/` before finishing.
+   - any E2E test named in the task's acceptance criteria, filtered to that module —
+     e.g. `cargo test --test e2e edit` (the E2E tier lives in the `e2e` test target;
+     see `spec.testing.md` §3–§4)
 6. Only check off an acceptance criteria box once it's genuinely true — not "should pass,"
    actually run and confirmed. Sole exception: the deferred T007–T013 E2E boxes, handled
    per Locked decision §7.
@@ -176,7 +174,7 @@ For each task:
 
 ## Non-negotiables
 
-- Never edit `../taskpad` (reference only) — including creating the missing `.mjs` files
+- Never edit `../taskpad` (reference only) — including creating the missing E2E test files
   there; E2E files live only in this repo.
 - Never edit `specs/spec.main.md`, `specs/spec.testing.md`, or a task file's acceptance
   criteria **to make something easier to pass**. If a criterion seems wrong, flag it in your
