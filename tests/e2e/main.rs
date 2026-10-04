@@ -1,5 +1,5 @@
 #![allow(clippy::unwrap_used, clippy::expect_used)]
-//! Integration tests for the `taskpad` binary, driven as a black box through
+//! Integration tests for the `taskpad-rs` binary, driven as a black box through
 //! `std::process::Command`.
 //!
 //! One test target, one module per command area, with the shared harness in

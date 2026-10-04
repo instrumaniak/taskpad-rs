@@ -498,7 +498,7 @@ This replaces the C++ version's Implementation Details section (Makefile, CLI11/
 | `thiserror` | Error enum boilerplate | Backs `TaskpadError` (§3). |
 | `tempfile` (**dev-dependency** only) | Isolated temp dirs | Required by `spec.testing.md` §2 for `storage.rs` unit tests, and by §3 for the E2E tier's per-test project fixtures. Added to `Cargo.toml` in T001. |
 | — (std only) | File I/O, path handling | `std::fs`, `std::path::{Path, PathBuf}` — no need for a filesystem crate beyond std for this tool's needs. |
-| — (std only) | E2E process + assertion layer | `std::process::Command`, `env!("CARGO_BIN_EXE_taskpad")`, and the three assertion helpers in `tests/common/mod.rs`. The E2E tier deliberately adds **no** dev-dependency: see the note below. |
+| — (std only) | E2E process + assertion layer | `std::process::Command`, `env!("CARGO_BIN_EXE_taskpad-rs")`, and the three assertion helpers in `tests/common/mod.rs`. The E2E tier deliberately adds **no** dev-dependency: see the note below. |
 
 The crate list above is closed: no `regex` (port the C++ manual scanners — see AGENTS.md
 Locked decision §1), no other additions without a human ruling.
@@ -618,7 +618,7 @@ User-level installation, no privileges required — same principle as the C++ ve
 ```bash
 cd /path/to/taskpad
 cargo install --path .
-# Binary installed to ~/.cargo/bin/taskpad (ensure that's on PATH)
+# Binary installed to ~/.cargo/bin/taskpad-rs (ensure that's on PATH)
 ```
 
 ### Dependencies

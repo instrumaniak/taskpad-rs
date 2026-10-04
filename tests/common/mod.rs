@@ -25,10 +25,10 @@ use tempfile::TempDir;
 // Binary discovery
 // ---------------------------------------------------------------------------
 
-/// Path to the `taskpad` binary under test.
+/// Path to the `taskpad-rs` binary under test.
 ///
 /// Resolution order: an explicit `TASKPAD_BIN` override, then the runtime
-/// `CARGO_BIN_EXE_taskpad`, then the compile-time one. The override exists so
+/// `CARGO_BIN_EXE_taskpad-rs`, then the compile-time one. The override exists so
 /// the C++ parity cross-check stays reproducible:
 ///
 /// ```text
@@ -47,10 +47,10 @@ pub fn binary() -> &'static Path {
             let path = PathBuf::from(raw);
             return fs::canonicalize(&path).unwrap_or(path);
         }
-        if let Some(raw) = std::env::var_os("CARGO_BIN_EXE_taskpad") {
+        if let Some(raw) = std::env::var_os("CARGO_BIN_EXE_taskpad-rs") {
             return PathBuf::from(raw);
         }
-        PathBuf::from(env!("CARGO_BIN_EXE_taskpad"))
+        PathBuf::from(env!("CARGO_BIN_EXE_taskpad-rs"))
     })
 }
 

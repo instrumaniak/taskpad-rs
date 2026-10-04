@@ -4,6 +4,20 @@ All notable changes to this project are documented in this file. The format is b
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project adheres to
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.1.0]
+
+### Changed
+
+- The binary is renamed `taskpad` → `taskpad-rs` (`Cargo.toml` `[[bin]]`, clap command
+  name, E2E harness binary discovery, docs). Installed location becomes
+  `~/.cargo/bin/taskpad-rs`.
+- Version reset from `1.0.0` to `0.1.0`.
+
+### Added
+
+- `--version` / `-v` flag printing `taskpad-rs 0.1.0` (clap's built-in `-V` short flag is
+  re-mapped to `-v`).
+
 ## [1.0.0]
 
 First release of the Rust port. The goal is drop-in compatibility with the C++

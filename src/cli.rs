@@ -10,13 +10,20 @@ use clap::{Parser, Subcommand};
 /// Top-level CLI parser.
 #[derive(Debug, Parser)]
 #[command(
-    name = "taskpad",
-    about = "taskpad - Task Management CLI",
+    name = "taskpad-rs",
+    version,
+    about = "taskpad-rs - Task Management CLI",
     subcommand_required = true,
     arg_required_else_help = true,
-    disable_help_subcommand = true
+    disable_help_subcommand = true,
+    disable_version_flag = true
 )]
 pub(crate) struct Cli {
+    // clap's built-in `--version` only offers `-V`; this re-adds it with the
+    // requested `-v` short flag.
+    #[arg(long, short = 'v', action = clap::ArgAction::Version)]
+    version: Option<bool>,
+
     #[arg(
         long,
         global = true,

@@ -157,7 +157,7 @@ Two things the harness must get right, both of which fail loudly if omitted:
 
 ### Binary discovery
 
-`env!("CARGO_BIN_EXE_taskpad")` gives the debug binary Cargo just built, so the tier no
+`env!("CARGO_BIN_EXE_taskpad-rs")` gives the debug binary Cargo just built, so the tier no
 longer needs `cargo build --release` first. Resolve an explicit `TASKPAD_BIN` override
 before the runtime and compile-time Cargo paths. Canonicalize a relative override while the
 test process is in the package root, before child commands change directory to each temp
@@ -228,7 +228,7 @@ cargo clippy --all-targets -- -D warnings
 - **No Node.js requirement** — the E2E tier is Rust. CI images need a Rust toolchain and
   nothing else, which is a net simplification versus the C++ version's Node 18+ requirement.
 - No separate build step: `cargo test` builds the binary the E2E tier drives, via
-  `CARGO_BIN_EXE_taskpad`. The tier exercises the **debug** binary; `cargo build --release`
+  `CARGO_BIN_EXE_taskpad-rs`. The tier exercises the **debug** binary; `cargo build --release`
   is only needed for distribution, not for testing.
 
 ---

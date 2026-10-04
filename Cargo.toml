@@ -1,6 +1,6 @@
 [package]
 name = "taskpad"
-version = "1.0.0"
+version = "0.1.0"
 edition = "2024"
 rust-version = "1.89"
 description = "Task tracking CLI with phase-aware dependency support (Rust port of taskpad)"
@@ -13,7 +13,7 @@ categories = ["command-line-utilities", "development-tools"]
 # license to mirror. Set one before publishing to crates.io.
 
 [[bin]]
-name = "taskpad"
+name = "taskpad-rs"
 path = "src/main.rs"
 
 [dependencies]
